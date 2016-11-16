@@ -14,3 +14,18 @@
   ```
   ./dkms-add.sh
   ```
+
+## Development Scripts
+
+1. Script to clean compile the module from soruce without installing to dkms
+  ```
+  ./dev-run.sh
+  ```
+2. Script to restore back touchpad handling by i2c_hid driver
+  ```
+  ./dev-restore.sh
+  ```
+3. Script to simulate how the driver will behave on boot by removing and then adding the driver with modprobe
+  ```
+  ./dev-modprobe.sh
+  ```

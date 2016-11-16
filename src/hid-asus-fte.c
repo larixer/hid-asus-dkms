@@ -2,6 +2,7 @@
  *   FocalTech i2c HID TouchPad - FocalTech FTE5436
  *
  *   Copyright (c) 2016 Brendan McGrath <redmcg@redmandi.dyndns.org>
+ *   Copyright (c) 2016 Victor Vlasenko <victor.vlasenko@sysgears.com>
  */
 
 /*
@@ -16,6 +17,7 @@
 #include <linux/input/mt.h>
 
 MODULE_AUTHOR("Brendan McGrath <redmcg@redmandi.dyndns.org>");
+MODULE_AUTHOR("Victor Vlasenko <victor.vlasenko@sysgears.com>");
 MODULE_DESCRIPTION("FocalTech TouchPad");
 MODULE_LICENSE("GPL");
 
@@ -156,6 +158,10 @@ static int start_multitouch(struct hid_device *hdev) {
 	return 0;
 }
 
+static int focaltech_resume(struct hid_device *hdev) {
+	return start_multitouch(hdev);
+}
+
 static int focaltech_probe(struct hid_device *hdev,
 		const struct hid_device_id *id)
 {
@@ -222,7 +228,25 @@ static struct hid_driver focaltech_driver = {
 	.probe = focaltech_probe,
 	.input_mapping = focaltech_input_mapping,
 	.input_configured = focaltech_input_configured,
+#ifdef CONFIG_PM
+	.resume			= focaltech_resume,
+	.reset_resume		= focaltech_resume,
+#endif
 	.raw_event = focaltech_raw_event
 };
 
-module_hid_driver(focaltech_driver);
+static int __init focaltech_driver_init(void)
+{
+	int ret;
+
+	ret = hid_register_driver(&focaltech_driver);
+
+	return ret;
+}
+module_init(focaltech_driver_init);
+
+static void __exit focaltech_driver_exit(void)
+{
+	hid_unregister_driver(&focaltech_driver);
+}
+module_exit(focaltech_driver_exit);
