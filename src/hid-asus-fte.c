@@ -3,6 +3,7 @@
  *
  *   Copyright (c) 2016 Brendan McGrath <redmcg@redmandi.dyndns.org>
  *   Copyright (c) 2016 Victor Vlasenko <victor.vlasenko@sysgears.com>
+ *   Copyright (c) 2016 Frederik Wenigwieser <frederik.wenigwieser@gmail.com>
  */
 
 /*
