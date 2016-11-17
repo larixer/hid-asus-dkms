@@ -15,6 +15,20 @@
   ./dkms-add.sh
   ```
 
+## Updating to the latest driver version
+
+1. Pull latest source code from repository.
+  ```
+  cd hid-asus-fte-dkms
+  git pull
+  ```
+
+2. Reinstall DKMS driver.
+
+  ```
+  ./dkms-add.sh
+  ```
+
 ## Development Scripts
 
 1. Script to clean compile the module from soruce without installing to dkms
