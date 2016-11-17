@@ -65,13 +65,14 @@ static int focaltech_raw_event(struct hid_device *hdev,
 		input_mt_slot(input, i);
 		input_mt_report_slot_state(input, toolType, down);
 
-		input_report_abs(input, ABS_MT_POSITION_X, x);
-		input_report_abs(input, ABS_MT_POSITION_Y, y);
-		input_report_abs(input, ABS_MT_TOUCH_MAJOR, touch_major);
-		input_report_abs(input, ABS_MT_PRESSURE, pressure);
 
-		if (down)
+		if (down) {
+			input_report_abs(input, ABS_MT_POSITION_X, x);
+			input_report_abs(input, ABS_MT_POSITION_Y, y);
+			input_report_abs(input, ABS_MT_TOUCH_MAJOR, touch_major);
+			input_report_abs(input, ABS_MT_PRESSURE, pressure);
 			contactNum++;
+		}
 	}
 
 	input_mt_report_pointer_emulation(input, true);
