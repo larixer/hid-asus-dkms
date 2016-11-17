@@ -141,11 +141,8 @@ static int focaltech_input_mapping(struct hid_device *hdev,
 				struct hid_input *hi, struct hid_field *field,
 				struct hid_usage *usage, unsigned long **bit, int *max)
 {
-	/* TrackPad does not give relative data after switching to MT */
-	if (field->flags & HID_MAIN_ITEM_RELATIVE)
-		return -1;
-
-	return 0;
+	/* Don't map anything from the HID report. We do it all manually in focaltech_setup_input */
+	return -1;
 }
 
 static int start_multitouch(struct hid_device *hdev) {
