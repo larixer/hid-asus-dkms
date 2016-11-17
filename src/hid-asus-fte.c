@@ -235,18 +235,4 @@ static struct hid_driver focaltech_driver = {
 	.raw_event = focaltech_raw_event
 };
 
-static int __init focaltech_driver_init(void)
-{
-	int ret;
-
-	ret = hid_register_driver(&focaltech_driver);
-
-	return ret;
-}
-module_init(focaltech_driver_init);
-
-static void __exit focaltech_driver_exit(void)
-{
-	hid_unregister_driver(&focaltech_driver);
-}
-module_exit(focaltech_driver_exit);
+module_hid_driver(focaltech_driver);
