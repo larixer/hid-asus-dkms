@@ -156,9 +156,11 @@ static int start_multitouch(struct hid_device *hdev) {
 	return 0;
 }
 
+#ifdef CONFIG_PM
 static int focaltech_resume(struct hid_device *hdev) {
 	return start_multitouch(hdev);
 }
+#endif
 
 static int focaltech_probe(struct hid_device *hdev,
 		const struct hid_device_id *id)
