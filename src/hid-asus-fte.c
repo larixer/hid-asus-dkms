@@ -193,6 +193,8 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
 		goto err_stop_hw;
 	}
 
+	drvdata->input->name = "Asus FTE TouchPad";
+
 	report = hid_register_report(hdev, HID_INPUT_REPORT, INPUT_REPORT_ID);
 
 	if (!report) {
