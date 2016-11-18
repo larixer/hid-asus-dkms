@@ -74,9 +74,9 @@ static int asus_raw_event(struct hid_device *hdev, struct hid_report *report, u8
 		}
 	}
 
+	input_mt_report_pointer_emulation(input, true);
 	input_report_key(input, BTN_LEFT, data[1] & 1);
 
-	input_mt_sync_frame(input);
 	input_sync(input);
 	return 1;
 }
@@ -143,7 +143,7 @@ static int asus_input_mapping(struct hid_device *hdev,
 	return -1;
 }
 
-static int asus_start_multitouch(struct hid_device *hdev) {
+static int start_multitouch(struct hid_device *hdev) {
 	unsigned char buf[] = { FEATURE_REPORT_ID, 0x00, 0x03, 0x01, 0x00 };
 	int ret = hid_hw_raw_request(hdev, FEATURE_REPORT_ID, buf, sizeof(buf), HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
 	if (ret != sizeof(buf)) {
@@ -155,37 +155,8 @@ static int asus_start_multitouch(struct hid_device *hdev) {
 }
 
 #ifdef CONFIG_PM
-static void asus_release_contacts(struct hid_device *hid)
-{
-	struct hid_input *hidinput;
-
-	list_for_each_entry(hidinput, &hid->inputs, list) {
-		struct input_dev *input_dev = hidinput->input;
-		struct input_mt *mt = input_dev->mt;
-		int i;
-
-		if (mt) {
-			for (i = 0; i < mt->num_slots; i++) {
-				input_mt_slot(input_dev, i);
-				input_mt_report_slot_state(input_dev,
-							   MT_TOOL_FINGER,
-							   false);
-			}
-			input_mt_sync_frame(input_dev);
-			input_sync(input_dev);
-		}
-	}
-}
-
-static int asus_reset_resume(struct hid_device *hdev) {
-	asus_release_contacts(hdev);
-	return asus_start_multitouch(hdev);
-}
-
 static int asus_resume(struct hid_device *hdev) {
-	hid_hw_idle(hdev, 0, 0, HID_REQ_SET_IDLE);
-
-	return 0;
+	return start_multitouch(hdev);
 }
 #endif
 
@@ -233,7 +204,7 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
 		goto err_stop_hw;
 	}
 
-	ret = asus_start_multitouch(hdev);
+	ret = start_multitouch(hdev);
 	if (ret)
 		goto err_stop_hw;
 
@@ -258,7 +229,7 @@ static struct hid_driver asus_driver = {
 	.input_configured = asus_input_configured,
 #ifdef CONFIG_PM
 	.resume			= asus_resume,
-	.reset_resume		= asus_reset_resume,
+	.reset_resume		= asus_resume,
 #endif
 	.raw_event = asus_raw_event
 };
