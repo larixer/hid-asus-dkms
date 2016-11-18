@@ -15,6 +15,14 @@
   ./dkms-add.sh
   ```
 
+## Submitting issues
+
+Please use GitHub issue tracker for submitting issues with DKMS driver:
+
+https://github.com/vlasenko/hid-asus-fte-dkms/issues
+
+This is the most convenient place for us to provide support on this project.
+
 ## Updating to the latest driver version
 
 1. Pull latest source code from repository.
@@ -28,6 +36,8 @@
   ```
   ./dkms-add.sh
   ```
+
+This will install DKMS driver into the system and reloads it immediately.
 
 ## Development Scripts
 
