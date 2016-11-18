@@ -9,7 +9,13 @@
   cd hid-asus-fte-dkms
   ```
 
-2. Install DKMS driver.
+2. Build and load the kernel module into memory to check
+   that it's working for you.
+  ```
+  ./dev-run.sh
+  ```
+
+3. Install DKMS driver, so that it loads on boot.
 
   ```
   ./dkms-add.sh
