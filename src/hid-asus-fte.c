@@ -69,6 +69,7 @@ MODULE_LICENSE("GPL");
 #define CONTACT_PRESSURE_MASK 0x7f
 
 #define BYTE_BIT_SHIFT 8
+#define TRKID_SGN       ((TRKID_MAX + 1) >> 1)
 
 static void asus_report_contact_down(struct input_dev *input,
 							 int toolType, u8 *data)
@@ -89,6 +90,34 @@ static void asus_report_contact_down(struct input_dev *input,
 	input_report_abs(input, ABS_MT_PRESSURE, pressure);
 }
 
+/* Required for Synaptics Palm Detection */
+static void asus_report_tool_width(struct input_dev *input)
+{
+        struct input_mt *mt = input->mt;
+        struct input_mt_slot *oldest;
+        int oldid, count, i;
+
+        oldest = NULL;
+        oldid = mt->trkid;
+        count = 0;
+
+        for (i = 0; i < mt->num_slots; ++i) {
+                struct input_mt_slot *ps = &mt->slots[i];
+                int id = input_mt_get_value(ps, ABS_MT_TRACKING_ID);
+
+                if (id < 0)
+                        continue;
+                if ((id - oldid) & TRKID_SGN) {
+                        oldest = ps;
+                        oldid = id;
+                }
+                count++;
+        }
+
+	if (oldest) {
+		input_report_abs(input, ABS_TOOL_WIDTH, input_mt_get_value(oldest, ABS_MT_TOUCH_MAJOR));
+	}
+}
 
 static void asus_report_input(struct input_dev *input, u8 *data)
 {
@@ -111,6 +140,7 @@ static void asus_report_input(struct input_dev *input, u8 *data)
 	}
 
 	input_report_key(input, BTN_LEFT, data[BTN_LEFT_OFFSET] & BTN_LEFT_MASK);
+	asus_report_tool_width(input);
 	input_mt_report_pointer_emulation(input, true);
 
 	input_sync(input);
