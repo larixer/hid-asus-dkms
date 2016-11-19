@@ -167,7 +167,6 @@ static int asus_resume(struct hid_device *hdev) {
 static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
 {
 	int ret;
-	struct hid_report *report;
 	struct asus_t *drvdata;
 
 	drvdata = devm_kzalloc(&hdev->dev, sizeof(*drvdata), GFP_KERNEL);
@@ -199,14 +198,6 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	}
 
 	drvdata->input->name = "Asus FTE TouchPad";
-
-	report = hid_register_report(hdev, HID_INPUT_REPORT, INPUT_REPORT_ID);
-
-	if (!report) {
-		hid_err(hdev, "Unable to register input report\n");
-		ret = -ENOMEM;
-		goto err_stop_hw;
-	}
 
 	ret = asus_start_multitouch(hdev);
 	if (ret)
