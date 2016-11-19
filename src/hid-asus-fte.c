@@ -40,21 +40,49 @@ MODULE_LICENSE("GPL");
 
 #define CONTACT_SIZE 5
 
+#define REPORT_ID_OFFSET 0
+
+#define CONTACT_DOWN_OFFSET 1
+#define CONTACT_DOWN_MASK 0x08
+
+#define CONTACT_TOOL_TYPE_OFFSET 5
+#define CONTACT_TOOL_TYPE_MASK 0x80
+
+#define CONTACT_X_MSB_OFFSET 2
+#define CONTACT_X_MSB_BIT_SHIFT 4
+#define CONTACT_X_LSB_OFFSET 3
+
+#define CONTACT_Y_MSB_OFFSET 2
+#define CONTACT_Y_MSB_MASK 0x0f
+#define CONTACT_Y_LSB_OFFSET 4
+
+#define CONTACT_TOUCH_MAJOR_OFFSET 5
+#define CONTACT_TOUCH_MAJOR_BIT_SHIFT 4
+#define CONTACT_TOUCH_MAJOR_MASK 0x07
+
+#define CONTACT_PRESSURE_OFFSET 6
+#define CONTACT_PRESSURE_MASK 0x7f
+
+#define BTN_LEFT_OFFSET 1
+#define BTN_LEFT_MASK 0x01
+
+#define BYTE_BIT_SHIFT 8
+
 static int asus_raw_event(struct hid_device *hdev, struct hid_report *report, u8 *data, int size)
 {
-	if (data[0] == INPUT_REPORT_ID && size == INPUT_REPORT_SIZE) {
+	if (data[REPORT_ID_OFFSET] == INPUT_REPORT_ID && size == INPUT_REPORT_SIZE) {
 		struct hid_input *hidinput;
 		list_for_each_entry(hidinput, &hdev->inputs, list) {
 			struct input_dev *input = hidinput->input;
 			int i, contactNum = 0;
 
 			for (i = 0; i < MAX_CONTACTS; i++) {
-				int down = data[1] & (0x08 << i);
-				int toolType = data[5 + contactNum*CONTACT_SIZE] & 0x80 ? MT_TOOL_PALM : MT_TOOL_FINGER;
-				int x = ((data[2 + contactNum*CONTACT_SIZE] >> 4) << 8) | data[3 + contactNum*CONTACT_SIZE];
-				int y = MAX_Y - (((data[2 + contactNum*CONTACT_SIZE] & 0x0f) << 8) | data[4 + contactNum*CONTACT_SIZE]);
-				int touch_major = toolType == MT_TOOL_FINGER ? (data[5 + contactNum*CONTACT_SIZE] >> 4) & 0x07 : MAX_TOUCH_MAJOR;
-				int pressure = toolType == MT_TOOL_FINGER ? data[6 + contactNum*CONTACT_SIZE] & 0x7f : MAX_PRESSURE;
+				int down = data[CONTACT_DOWN_OFFSET] & (CONTACT_DOWN_MASK << i);
+				int toolType = data[CONTACT_TOOL_TYPE_OFFSET + contactNum*CONTACT_SIZE] & CONTACT_TOOL_TYPE_MASK ? MT_TOOL_PALM : MT_TOOL_FINGER;
+				int x = ((data[CONTACT_X_MSB_OFFSET + contactNum*CONTACT_SIZE] >> CONTACT_X_MSB_BIT_SHIFT) << BYTE_BIT_SHIFT) | data[CONTACT_X_LSB_OFFSET + contactNum*CONTACT_SIZE];
+				int y = MAX_Y - (((data[CONTACT_Y_MSB_OFFSET + contactNum*CONTACT_SIZE] & CONTACT_Y_MSB_MASK) << BYTE_BIT_SHIFT) | data[CONTACT_Y_LSB_OFFSET + contactNum*CONTACT_SIZE]);
+				int touch_major = toolType == MT_TOOL_FINGER ? (data[CONTACT_TOUCH_MAJOR_OFFSET + contactNum*CONTACT_SIZE] >> CONTACT_TOUCH_MAJOR_BIT_SHIFT) & CONTACT_TOUCH_MAJOR_MASK : MAX_TOUCH_MAJOR;
+				int pressure = toolType == MT_TOOL_FINGER ? data[CONTACT_PRESSURE_OFFSET + contactNum*CONTACT_SIZE] & CONTACT_PRESSURE_MASK : MAX_PRESSURE;
 
 				input_mt_slot(input, i);
 				input_mt_report_slot_state(input, toolType, down);
@@ -69,7 +97,7 @@ static int asus_raw_event(struct hid_device *hdev, struct hid_report *report, u8
 			}
 
 			input_mt_report_pointer_emulation(input, true);
-			input_report_key(input, BTN_LEFT, data[1] & 1);
+			input_report_key(input, BTN_LEFT, data[BTN_LEFT_OFFSET] & BTN_LEFT_MASK);
 
 			input_sync(input);
 		}
