@@ -147,7 +147,7 @@ static int asus_input_mapping(struct hid_device *hdev,
 	return -1;
 }
 
-static int start_multitouch(struct hid_device *hdev) {
+static int asus_start_multitouch(struct hid_device *hdev) {
 	unsigned char buf[] = { FEATURE_REPORT_ID, 0x00, 0x03, 0x01, 0x00 };
 	int ret = hid_hw_raw_request(hdev, FEATURE_REPORT_ID, buf, sizeof(buf), HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
 	if (ret != sizeof(buf)) {
@@ -160,7 +160,7 @@ static int start_multitouch(struct hid_device *hdev) {
 
 #ifdef CONFIG_PM
 static int asus_resume(struct hid_device *hdev) {
-	return start_multitouch(hdev);
+	return asus_start_multitouch(hdev);
 }
 #endif
 
@@ -208,7 +208,7 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
 		goto err_stop_hw;
 	}
 
-	ret = start_multitouch(hdev);
+	ret = asus_start_multitouch(hdev);
 	if (ret)
 		goto err_stop_hw;
 
