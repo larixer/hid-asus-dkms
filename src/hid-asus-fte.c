@@ -226,11 +226,11 @@ static const struct hid_device_id asus_touchpad[] = {
 MODULE_DEVICE_TABLE(hid, asus_touchpad);
 
 static struct hid_driver asus_driver = {
-	.name = "hid-asus-fte",
-	.id_table = asus_touchpad,
-	.probe = asus_probe,
-	.input_mapping = asus_input_mapping,
-	.input_configured = asus_input_configured,
+	.name 			= "hid-asus-fte",
+	.id_table 		= asus_touchpad,
+	.probe 			= asus_probe,
+	.input_mapping 		= asus_input_mapping,
+	.input_configured 	= asus_input_configured,
 #ifdef CONFIG_PM
 	.resume			= asus_resume,
 	.reset_resume		= asus_resume,
