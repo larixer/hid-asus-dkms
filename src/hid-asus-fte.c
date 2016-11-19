@@ -38,68 +38,94 @@ MODULE_LICENSE("GPL");
 #define MAX_TOUCH_MAJOR 8
 #define MAX_PRESSURE 0x80
 
-#define CONTACT_SIZE 5
 
 #define REPORT_ID_OFFSET 0
 
 #define CONTACT_DOWN_OFFSET 1
 #define CONTACT_DOWN_MASK 0x08
 
-#define CONTACT_TOOL_TYPE_OFFSET 5
-#define CONTACT_TOOL_TYPE_MASK 0x80
-
-#define CONTACT_X_MSB_OFFSET 2
-#define CONTACT_X_MSB_BIT_SHIFT 4
-#define CONTACT_X_LSB_OFFSET 3
-
-#define CONTACT_Y_MSB_OFFSET 2
-#define CONTACT_Y_MSB_MASK 0x0f
-#define CONTACT_Y_LSB_OFFSET 4
-
-#define CONTACT_TOUCH_MAJOR_OFFSET 5
-#define CONTACT_TOUCH_MAJOR_BIT_SHIFT 4
-#define CONTACT_TOUCH_MAJOR_MASK 0x07
-
-#define CONTACT_PRESSURE_OFFSET 6
-#define CONTACT_PRESSURE_MASK 0x7f
-
 #define BTN_LEFT_OFFSET 1
 #define BTN_LEFT_MASK 0x01
 
+#define CONTACT_DATA_OFFSET 2
+#define CONTACT_DATA_SIZE 5
+
+#define CONTACT_TOOL_TYPE_OFFSET 3
+#define CONTACT_TOOL_TYPE_MASK 0x80
+
+#define CONTACT_X_MSB_OFFSET 0
+#define CONTACT_X_MSB_BIT_SHIFT 4
+#define CONTACT_X_LSB_OFFSET 1
+
+#define CONTACT_Y_MSB_OFFSET 0
+#define CONTACT_Y_MSB_MASK 0x0f
+#define CONTACT_Y_LSB_OFFSET 2
+
+#define CONTACT_TOUCH_MAJOR_OFFSET 3
+#define CONTACT_TOUCH_MAJOR_BIT_SHIFT 4
+#define CONTACT_TOUCH_MAJOR_MASK 0x07
+
+#define CONTACT_PRESSURE_OFFSET 4
+#define CONTACT_PRESSURE_MASK 0x7f
+
 #define BYTE_BIT_SHIFT 8
 
-static int asus_raw_event(struct hid_device *hdev, struct hid_report *report, u8 *data, int size)
+static void asus_report_contact_down(struct input_dev *input,
+							 int toolType, u8 *data)
 {
-	if (data[REPORT_ID_OFFSET] == INPUT_REPORT_ID && size == INPUT_REPORT_SIZE) {
+	int x = ((data[CONTACT_X_MSB_OFFSET] >> CONTACT_X_MSB_BIT_SHIFT)
+				<< BYTE_BIT_SHIFT) | data[CONTACT_X_LSB_OFFSET];
+	int y = MAX_Y - (((data[CONTACT_Y_MSB_OFFSET] & CONTACT_Y_MSB_MASK)
+			       << BYTE_BIT_SHIFT) | data[CONTACT_Y_LSB_OFFSET]);
+	int touch_major = toolType == MT_TOOL_FINGER ?
+	   (data[CONTACT_TOUCH_MAJOR_OFFSET] >> CONTACT_TOUCH_MAJOR_BIT_SHIFT) &
+				     CONTACT_TOUCH_MAJOR_MASK : MAX_TOUCH_MAJOR;
+	int pressure = toolType == MT_TOOL_FINGER ?
+	   data[CONTACT_PRESSURE_OFFSET] & CONTACT_PRESSURE_MASK : MAX_PRESSURE;
+
+	input_report_abs(input, ABS_MT_POSITION_X, x);
+	input_report_abs(input, ABS_MT_POSITION_Y, y);
+	input_report_abs(input, ABS_MT_TOUCH_MAJOR, touch_major);
+	input_report_abs(input, ABS_MT_PRESSURE, pressure);
+}
+
+
+static void asus_report_input(struct input_dev *input, u8 *data)
+{
+	int i, contactNum = 0;
+
+	for (i = 0; i < MAX_CONTACTS; i++) {
+		bool down = data[CONTACT_DOWN_OFFSET] &
+						 (CONTACT_DOWN_MASK << i);
+		u8 *contactData = data + CONTACT_DATA_OFFSET +
+						 contactNum*CONTACT_DATA_SIZE;
+		int toolType = contactData[CONTACT_TOOL_TYPE_OFFSET] &
+			 CONTACT_TOOL_TYPE_MASK ? MT_TOOL_PALM : MT_TOOL_FINGER;
+
+		input_mt_slot(input, i);
+		input_mt_report_slot_state(input, toolType, down);
+
+		if (down) {
+			asus_report_contact_down(input, toolType, contactData);
+			contactNum++;
+		}
+	}
+
+	input_mt_report_pointer_emulation(input, true);
+	input_report_key(input, BTN_LEFT, data[BTN_LEFT_OFFSET] & BTN_LEFT_MASK);
+
+	input_sync(input);
+
+}
+
+static int asus_raw_event(struct hid_device *hdev,
+				 struct hid_report *report, u8 *data, int size)
+{
+	if (data[REPORT_ID_OFFSET] == INPUT_REPORT_ID &&
+						 size == INPUT_REPORT_SIZE) {
 		struct hid_input *hidinput;
 		list_for_each_entry(hidinput, &hdev->inputs, list) {
-			struct input_dev *input = hidinput->input;
-			int i, contactNum = 0;
-
-			for (i = 0; i < MAX_CONTACTS; i++) {
-				int down = data[CONTACT_DOWN_OFFSET] & (CONTACT_DOWN_MASK << i);
-				int toolType = data[CONTACT_TOOL_TYPE_OFFSET + contactNum*CONTACT_SIZE] & CONTACT_TOOL_TYPE_MASK ? MT_TOOL_PALM : MT_TOOL_FINGER;
-				int x = ((data[CONTACT_X_MSB_OFFSET + contactNum*CONTACT_SIZE] >> CONTACT_X_MSB_BIT_SHIFT) << BYTE_BIT_SHIFT) | data[CONTACT_X_LSB_OFFSET + contactNum*CONTACT_SIZE];
-				int y = MAX_Y - (((data[CONTACT_Y_MSB_OFFSET + contactNum*CONTACT_SIZE] & CONTACT_Y_MSB_MASK) << BYTE_BIT_SHIFT) | data[CONTACT_Y_LSB_OFFSET + contactNum*CONTACT_SIZE]);
-				int touch_major = toolType == MT_TOOL_FINGER ? (data[CONTACT_TOUCH_MAJOR_OFFSET + contactNum*CONTACT_SIZE] >> CONTACT_TOUCH_MAJOR_BIT_SHIFT) & CONTACT_TOUCH_MAJOR_MASK : MAX_TOUCH_MAJOR;
-				int pressure = toolType == MT_TOOL_FINGER ? data[CONTACT_PRESSURE_OFFSET + contactNum*CONTACT_SIZE] & CONTACT_PRESSURE_MASK : MAX_PRESSURE;
-
-				input_mt_slot(input, i);
-				input_mt_report_slot_state(input, toolType, down);
-
-				if (down) {
-					input_report_abs(input, ABS_MT_POSITION_X, x);
-					input_report_abs(input, ABS_MT_POSITION_Y, y);
-					input_report_abs(input, ABS_MT_TOUCH_MAJOR, touch_major);
-					input_report_abs(input, ABS_MT_PRESSURE, pressure);
-					contactNum++;
-				}
-			}
-
-			input_mt_report_pointer_emulation(input, true);
-			input_report_key(input, BTN_LEFT, data[BTN_LEFT_OFFSET] & BTN_LEFT_MASK);
-
-			input_sync(input);
+			asus_report_input(hidinput->input, data);
 		}
 		return 1;
 	}
@@ -162,7 +188,8 @@ static int asus_input_configured(struct hid_device *hdev, struct hid_input *hi)
 
 static int asus_input_mapping(struct hid_device *hdev,
 				struct hid_input *hi, struct hid_field *field,
-				struct hid_usage *usage, unsigned long **bit, int *max)
+				struct hid_usage *usage, unsigned long **bit,
+				int *max)
 {
 	/* Don't map anything from the HID report. We do it all manually in asus_setup_input */
 	return -1;
@@ -170,7 +197,8 @@ static int asus_input_mapping(struct hid_device *hdev,
 
 static int asus_start_multitouch(struct hid_device *hdev) {
 	unsigned char buf[] = { FEATURE_REPORT_ID, 0x00, 0x03, 0x01, 0x00 };
-	int ret = hid_hw_raw_request(hdev, FEATURE_REPORT_ID, buf, sizeof(buf), HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
+	int ret = hid_hw_raw_request(hdev, FEATURE_REPORT_ID, buf, sizeof(buf),
+					 HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
 	if (ret != sizeof(buf)) {
 		hid_err(hdev, "Failed to start multitouch: %d\n", ret);
 		return ret;
@@ -221,11 +249,11 @@ static const struct hid_device_id asus_touchpad[] = {
 MODULE_DEVICE_TABLE(hid, asus_touchpad);
 
 static struct hid_driver asus_driver = {
-	.name 			= "hid-asus-fte",
-	.id_table 		= asus_touchpad,
-	.probe 			= asus_probe,
-	.input_mapping 		= asus_input_mapping,
-	.input_configured 	= asus_input_configured,
+	.name			= "hid-asus-fte",
+	.id_table		= asus_touchpad,
+	.probe			= asus_probe,
+	.input_mapping		= asus_input_mapping,
+	.input_configured	= asus_input_configured,
 #ifdef CONFIG_PM
 	.resume			= asus_resume,
 	.reset_resume		= asus_resume,
