@@ -92,13 +92,12 @@ static void asus_report_contact_down(struct input_dev *input,
 
 static void asus_report_input(struct input_dev *input, u8 *data)
 {
-	int i, contactNum = 0;
+	int i;
+	u8 *contactData = data + CONTACT_DATA_OFFSET;
 
 	for (i = 0; i < MAX_CONTACTS; i++) {
 		bool down = data[CONTACT_DOWN_OFFSET] &
 						 (CONTACT_DOWN_MASK << i);
-		u8 *contactData = data + CONTACT_DATA_OFFSET +
-						 contactNum*CONTACT_DATA_SIZE;
 		int toolType = contactData[CONTACT_TOOL_TYPE_OFFSET] &
 			 CONTACT_TOOL_TYPE_MASK ? MT_TOOL_PALM : MT_TOOL_FINGER;
 
@@ -107,7 +106,7 @@ static void asus_report_input(struct input_dev *input, u8 *data)
 
 		if (down) {
 			asus_report_contact_down(input, toolType, contactData);
-			contactNum++;
+			contactData += CONTACT_DATA_SIZE;
 		}
 	}
 
