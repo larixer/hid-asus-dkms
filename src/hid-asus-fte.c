@@ -40,45 +40,39 @@ MODULE_LICENSE("GPL");
 
 #define CONTACT_SIZE 5
 
-/**
- * struct asus_t - Tracks ASUS FTE I2C HID TouchPad data.
- * @input: Input device through which we report events.
- */
-struct asus_t {
-	struct input_dev *input;
-};
-
 static int asus_raw_event(struct hid_device *hdev, struct hid_report *report, u8 *data, int size)
 {
 	if (data[0] == INPUT_REPORT_ID && size == INPUT_REPORT_SIZE) {
-		int i, contactNum = 0;
-		struct asus_t *drvdata = hid_get_drvdata(hdev);
-		struct input_dev *input = drvdata->input;
+		struct hid_input *hidinput;
+		list_for_each_entry(hidinput, &hdev->inputs, list) {
+			struct input_dev *input = hidinput->input;
+			int i, contactNum = 0;
 
-		for (i = 0; i < MAX_CONTACTS; i++) {
-			int down = data[1] & (0x08 << i);
-			int toolType = data[5 + contactNum*CONTACT_SIZE] & 0x80 ? MT_TOOL_PALM : MT_TOOL_FINGER;
-			int x = ((data[2 + contactNum*CONTACT_SIZE] >> 4) << 8) | data[3 + contactNum*CONTACT_SIZE];
-			int y = MAX_Y - (((data[2 + contactNum*CONTACT_SIZE] & 0x0f) << 8) | data[4 + contactNum*CONTACT_SIZE]);
-			int touch_major = toolType == MT_TOOL_FINGER ? (data[5 + contactNum*CONTACT_SIZE] >> 4) & 0x07 : MAX_TOUCH_MAJOR;
-			int pressure = toolType == MT_TOOL_FINGER ? data[6 + contactNum*CONTACT_SIZE] & 0x7f : MAX_PRESSURE;
+			for (i = 0; i < MAX_CONTACTS; i++) {
+				int down = data[1] & (0x08 << i);
+				int toolType = data[5 + contactNum*CONTACT_SIZE] & 0x80 ? MT_TOOL_PALM : MT_TOOL_FINGER;
+				int x = ((data[2 + contactNum*CONTACT_SIZE] >> 4) << 8) | data[3 + contactNum*CONTACT_SIZE];
+				int y = MAX_Y - (((data[2 + contactNum*CONTACT_SIZE] & 0x0f) << 8) | data[4 + contactNum*CONTACT_SIZE]);
+				int touch_major = toolType == MT_TOOL_FINGER ? (data[5 + contactNum*CONTACT_SIZE] >> 4) & 0x07 : MAX_TOUCH_MAJOR;
+				int pressure = toolType == MT_TOOL_FINGER ? data[6 + contactNum*CONTACT_SIZE] & 0x7f : MAX_PRESSURE;
 
-			input_mt_slot(input, i);
-			input_mt_report_slot_state(input, toolType, down);
+				input_mt_slot(input, i);
+				input_mt_report_slot_state(input, toolType, down);
 
-			if (down) {
-				input_report_abs(input, ABS_MT_POSITION_X, x);
-				input_report_abs(input, ABS_MT_POSITION_Y, y);
-				input_report_abs(input, ABS_MT_TOUCH_MAJOR, touch_major);
-				input_report_abs(input, ABS_MT_PRESSURE, pressure);
-				contactNum++;
+				if (down) {
+					input_report_abs(input, ABS_MT_POSITION_X, x);
+					input_report_abs(input, ABS_MT_POSITION_Y, y);
+					input_report_abs(input, ABS_MT_TOUCH_MAJOR, touch_major);
+					input_report_abs(input, ABS_MT_PRESSURE, pressure);
+					contactNum++;
+				}
 			}
+
+			input_mt_report_pointer_emulation(input, true);
+			input_report_key(input, BTN_LEFT, data[1] & 1);
+
+			input_sync(input);
 		}
-
-		input_mt_report_pointer_emulation(input, true);
-		input_report_key(input, BTN_LEFT, data[1] & 1);
-
-		input_sync(input);
 		return 1;
 	}
 
@@ -88,14 +82,13 @@ static int asus_raw_event(struct hid_device *hdev, struct hid_report *report, u8
 static int asus_setup_input(struct hid_device *hdev, struct input_dev *input)
 {
 	int ret = input_mt_init_slots(input, MAX_CONTACTS, 0);
-	struct asus_t *drvdata = hid_get_drvdata(hdev);
 
 	if (ret) {
 		hid_err(hdev, "ASUS FTE input mt init slots failed: %d\n", ret);
 		return ret;
 	}
 
-	drvdata->input = input;
+	input->name = "Asus FTE TouchPad";
 
 	__set_bit(EV_KEY, input->evbit);
 	__set_bit(BTN_LEFT, input->keybit);
@@ -167,15 +160,6 @@ static int asus_resume(struct hid_device *hdev) {
 static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
 {
 	int ret;
-	struct asus_t *drvdata;
-
-	drvdata = devm_kzalloc(&hdev->dev, sizeof(*drvdata), GFP_KERNEL);
-	if (drvdata == NULL) {
-		hid_err(hdev, "Can't alloc ASUS FTE descriptor\n");
-		return -ENOMEM;
-	}
-
-	hid_set_drvdata(hdev, drvdata);
 
 	hdev->quirks = HID_QUIRK_NO_INIT_REPORTS;
 
@@ -190,14 +174,6 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
 		hid_err(hdev, "ASUS FTE hw start failed: %d\n", ret);
 		return ret;
 	}
-
-	if (!drvdata->input) {
-		hid_err(hdev, "ASUS FTE input not registered\n");
-		ret = -ENOMEM;
-		goto err_stop_hw;
-	}
-
-	drvdata->input->name = "Asus FTE TouchPad";
 
 	ret = asus_start_multitouch(hdev);
 	if (ret)
