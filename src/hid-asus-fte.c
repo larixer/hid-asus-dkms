@@ -29,7 +29,7 @@ MODULE_LICENSE("GPL");
 #define FEATURE_REPORT_ID 0x0d
 #define INPUT_REPORT_ID 0x5d
 
-#define INPUT_REPORT_SIZE 27
+#define INPUT_REPORT_SIZE 28
 
 #define MAX_CONTACTS 5
 
@@ -50,7 +50,7 @@ struct asus_t {
 
 static int asus_raw_event(struct hid_device *hdev, struct hid_report *report, u8 *data, int size)
 {
-	if (data[0] == INPUT_REPORT_ID) { 
+	if (data[0] == INPUT_REPORT_ID && size == INPUT_REPORT_SIZE) {
 		int i, contactNum = 0;
 		struct asus_t *drvdata = hid_get_drvdata(hdev);
 		struct input_dev *input = drvdata->input;
