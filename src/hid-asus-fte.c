@@ -110,11 +110,10 @@ static void asus_report_input(struct input_dev *input, u8 *data)
 		}
 	}
 
-	input_mt_report_pointer_emulation(input, true);
 	input_report_key(input, BTN_LEFT, data[BTN_LEFT_OFFSET] & BTN_LEFT_MASK);
+	input_mt_report_pointer_emulation(input, true);
 
 	input_sync(input);
-
 }
 
 static int asus_raw_event(struct hid_device *hdev,
