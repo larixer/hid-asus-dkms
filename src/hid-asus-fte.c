@@ -74,17 +74,19 @@ MODULE_LICENSE("GPL");
 #define TRKID_SGN       ((TRKID_MAX + 1) >> 1)
 
 static void asus_report_contact_down(struct input_dev *input,
-							 int toolType, u8 *data)
+		int toolType, u8 *data)
 {
 	int x = ((data[CONTACT_X_MSB_OFFSET] >> CONTACT_X_MSB_BIT_SHIFT)
-				<< BYTE_BIT_SHIFT) | data[CONTACT_X_LSB_OFFSET];
+			<< BYTE_BIT_SHIFT) | data[CONTACT_X_LSB_OFFSET];
 	int y = MAX_Y - (((data[CONTACT_Y_MSB_OFFSET] & CONTACT_Y_MSB_MASK)
-			       << BYTE_BIT_SHIFT) | data[CONTACT_Y_LSB_OFFSET]);
+			<< BYTE_BIT_SHIFT) | data[CONTACT_Y_LSB_OFFSET]);
 	int touch_major = toolType == MT_TOOL_FINGER ?
-	   (data[CONTACT_TOUCH_MAJOR_OFFSET] >> CONTACT_TOUCH_MAJOR_BIT_SHIFT) &
-				     CONTACT_TOUCH_MAJOR_MASK : MAX_TOUCH_MAJOR;
+			(data[CONTACT_TOUCH_MAJOR_OFFSET]
+			>> CONTACT_TOUCH_MAJOR_BIT_SHIFT) &
+			CONTACT_TOUCH_MAJOR_MASK : MAX_TOUCH_MAJOR;
 	int pressure = toolType == MT_TOOL_FINGER ?
-	   data[CONTACT_PRESSURE_OFFSET] & CONTACT_PRESSURE_MASK : MAX_PRESSURE;
+			data[CONTACT_PRESSURE_OFFSET] & CONTACT_PRESSURE_MASK
+			: MAX_PRESSURE;
 
 	input_report_abs(input, ABS_MT_POSITION_X, x);
 	input_report_abs(input, ABS_MT_POSITION_Y, y);
@@ -95,29 +97,30 @@ static void asus_report_contact_down(struct input_dev *input,
 /* Required for Synaptics Palm Detection */
 static void asus_report_tool_width(struct input_dev *input)
 {
-        struct input_mt *mt = input->mt;
-        struct input_mt_slot *oldest;
-        int oldid, count, i;
+	struct input_mt *mt = input->mt;
+	struct input_mt_slot *oldest;
+	int oldid, count, i;
 
-        oldest = NULL;
-        oldid = mt->trkid;
-        count = 0;
+	oldest = NULL;
+	oldid = mt->trkid;
+	count = 0;
 
-        for (i = 0; i < mt->num_slots; ++i) {
-                struct input_mt_slot *ps = &mt->slots[i];
-                int id = input_mt_get_value(ps, ABS_MT_TRACKING_ID);
+	for (i = 0; i < mt->num_slots; ++i) {
+		struct input_mt_slot *ps = &mt->slots[i];
+		int id = input_mt_get_value(ps, ABS_MT_TRACKING_ID);
 
-                if (id < 0)
-                        continue;
-                if ((id - oldid) & TRKID_SGN) {
-                        oldest = ps;
-                        oldid = id;
-                }
-                count++;
-        }
+		if (id < 0)
+			continue;
+		if ((id - oldid) & TRKID_SGN) {
+			oldest = ps;
+			oldid = id;
+		}
+		count++;
+	}
 
 	if (oldest) {
-		input_report_abs(input, ABS_TOOL_WIDTH, input_mt_get_value(oldest, ABS_MT_TOUCH_MAJOR));
+		input_report_abs(input, ABS_TOOL_WIDTH,
+			input_mt_get_value(oldest, ABS_MT_TOUCH_MAJOR));
 	}
 }
 
@@ -128,9 +131,10 @@ static void asus_report_input(struct input_dev *input, u8 *data)
 
 	for (i = 0; i < MAX_CONTACTS; i++) {
 		bool down = data[CONTACT_DOWN_OFFSET] &
-						 (CONTACT_DOWN_MASK << i);
+				(CONTACT_DOWN_MASK << i);
 		int toolType = contactData[CONTACT_TOOL_TYPE_OFFSET] &
-			 CONTACT_TOOL_TYPE_MASK ? MT_TOOL_PALM : MT_TOOL_FINGER;
+				CONTACT_TOOL_TYPE_MASK ? MT_TOOL_PALM
+				: MT_TOOL_FINGER;
 
 		input_mt_slot(input, i);
 		input_mt_report_slot_state(input, toolType, down);
@@ -141,7 +145,8 @@ static void asus_report_input(struct input_dev *input, u8 *data)
 		}
 	}
 
-	input_report_key(input, BTN_LEFT, data[BTN_LEFT_OFFSET] & BTN_LEFT_MASK);
+	input_report_key(input, BTN_LEFT,
+			data[BTN_LEFT_OFFSET] & BTN_LEFT_MASK);
 	asus_report_tool_width(input);
 	input_mt_report_pointer_emulation(input, true);
 
@@ -149,10 +154,10 @@ static void asus_report_input(struct input_dev *input, u8 *data)
 }
 
 static int asus_raw_event(struct hid_device *hdev,
-				 struct hid_report *report, u8 *data, int size)
+		struct hid_report *report, u8 *data, int size)
 {
 	if (data[REPORT_ID_OFFSET] == INPUT_REPORT_ID &&
-						 size == INPUT_REPORT_SIZE) {
+			size == INPUT_REPORT_SIZE) {
 		struct hid_input *hidinput;
 		list_for_each_entry(hidinput, &hdev->inputs, list) {
 			asus_report_input(hidinput->input, data);
@@ -217,9 +222,9 @@ static int asus_input_configured(struct hid_device *hdev, struct hid_input *hi)
 }
 
 static int asus_input_mapping(struct hid_device *hdev,
-				struct hid_input *hi, struct hid_field *field,
-				struct hid_usage *usage, unsigned long **bit,
-				int *max)
+		struct hid_input *hi, struct hid_field *field,
+		struct hid_usage *usage, unsigned long **bit,
+		int *max)
 {
 	/* Don't map anything from the HID report. We do it all manually in asus_setup_input */
 	return -1;
@@ -228,7 +233,7 @@ static int asus_input_mapping(struct hid_device *hdev,
 static int asus_start_multitouch(struct hid_device *hdev) {
 	unsigned char buf[] = { FEATURE_REPORT_ID, 0x00, 0x03, 0x01, 0x00 };
 	int ret = hid_hw_raw_request(hdev, FEATURE_REPORT_ID, buf, sizeof(buf),
-					 HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
+			HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
 	if (ret != sizeof(buf)) {
 		hid_err(hdev, "Failed to start multitouch: %d\n", ret);
 		return ret;
@@ -273,7 +278,7 @@ err_stop_hw:
 
 static const struct hid_device_id asus_touchpad[] = {
 	{ HID_I2C_DEVICE(VENDOR_ID,
-		DEVICE_ID), .driver_data = 0 },
+			DEVICE_ID), .driver_data = 0 },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, asus_touchpad);
