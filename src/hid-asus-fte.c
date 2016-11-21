@@ -148,8 +148,8 @@ static void asus_report_input(struct input_dev *input, u8 *data)
 	input_report_key(input, BTN_LEFT,
 			data[BTN_LEFT_OFFSET] & BTN_LEFT_MASK);
 	asus_report_tool_width(input);
-	input_mt_report_pointer_emulation(input, true);
 
+	input_mt_sync_frame(input);
 	input_sync(input);
 }
 
@@ -170,44 +170,25 @@ static int asus_raw_event(struct hid_device *hdev,
 
 static int asus_setup_input(struct hid_device *hdev, struct input_dev *input)
 {
-	int ret = input_mt_init_slots(input, MAX_CONTACTS, 0);
+	int ret;
+
+	input->name = "Asus FTE TouchPad";
+
+	input_set_abs_params(input, ABS_MT_POSITION_X, 0, MAX_X, 0, 0);
+	input_set_abs_params(input, ABS_MT_POSITION_Y, 0, MAX_Y, 0, 0);
+	input_set_abs_params(input, ABS_TOOL_WIDTH, 0, MAX_TOUCH_MAJOR, 0, 0);
+	input_set_abs_params(input, ABS_MT_TOUCH_MAJOR, 0, MAX_TOUCH_MAJOR, 0, 0);
+	input_set_abs_params(input, ABS_MT_PRESSURE, 0, MAX_PRESSURE, 0, 0);
+
+	__set_bit(BTN_LEFT, input->keybit);
+	__set_bit(INPUT_PROP_BUTTONPAD, input->propbit);
+
+	ret = input_mt_init_slots(input, MAX_CONTACTS, INPUT_MT_POINTER);
 
 	if (ret) {
 		hid_err(hdev, "ASUS FTE input mt init slots failed: %d\n", ret);
 		return ret;
 	}
-
-	input->name = "Asus FTE TouchPad";
-
-	__set_bit(EV_KEY, input->evbit);
-	__set_bit(BTN_LEFT, input->keybit);
-	__set_bit(BTN_TOOL_FINGER, input->keybit);
-	__set_bit(BTN_TOUCH, input->keybit);
-	__set_bit(BTN_TOOL_DOUBLETAP, input->keybit);
-	__set_bit(BTN_TOOL_TRIPLETAP, input->keybit);
-	__set_bit(BTN_TOOL_QUADTAP, input->keybit);
-
-
-	input_set_abs_params(input, ABS_X, 0, MAX_X, 0, 0);
-
-	input_set_abs_params(input, ABS_Y, 0, MAX_Y, 0, 0);
-
-	input_set_abs_params(input, ABS_MT_POSITION_X, 0, MAX_X, 0, 0);
-
-	input_set_abs_params(input, ABS_MT_POSITION_Y, 0, MAX_Y, 0, 0);
-
-	input_set_abs_params(input, ABS_MT_TOOL_TYPE, 0, MT_TOOL_MAX, 0, 0);
-
-	input_set_abs_params(input, ABS_TOOL_WIDTH, 0, MAX_TOUCH_MAJOR, 0, 0);
-
-	input_set_abs_params(input, ABS_MT_TOUCH_MAJOR, 0, MAX_TOUCH_MAJOR, 0, 0);
-
-	input_set_abs_params(input, ABS_PRESSURE, 0, MAX_PRESSURE, 0, 0);
-
-	input_set_abs_params(input, ABS_MT_PRESSURE, 0, MAX_PRESSURE, 0, 0);
-
-	__set_bit(INPUT_PROP_POINTER, input->propbit);
-	__set_bit(INPUT_PROP_BUTTONPAD, input->propbit);
 
 	return 0;
 }
