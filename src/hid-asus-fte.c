@@ -224,7 +224,7 @@ static int asus_start_multitouch(struct hid_device *hdev) {
 }
 
 #ifdef CONFIG_PM
-static int asus_resume(struct hid_device *hdev) {
+static int asus_reset_resume(struct hid_device *hdev) {
 	return asus_start_multitouch(hdev);
 }
 #endif
@@ -271,8 +271,7 @@ static struct hid_driver asus_driver = {
 	.input_mapping		= asus_input_mapping,
 	.input_configured	= asus_input_configured,
 #ifdef CONFIG_PM
-	.resume			= asus_resume,
-	.reset_resume		= asus_resume,
+	.reset_resume		= asus_reset_resume,
 #endif
 	.raw_event = asus_raw_event
 };
