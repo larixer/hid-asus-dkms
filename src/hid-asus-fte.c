@@ -1,5 +1,7 @@
 /*
- *   FocalTech i2c HID TouchPad - FocalTech FTE5436
+ *   HID driver for ASUS i2c touchpad.
+ *
+ *   The device has FTE100x ACPI ID, though the driver doesn't rely on it.
  *
  *   Copyright (c) 2016 Brendan McGrath <redmcg@redmandi.dyndns.org>
  *   Copyright (c) 2016 Victor Vlasenko <victor.vlasenko@sysgears.com>
