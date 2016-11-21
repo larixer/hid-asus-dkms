@@ -31,7 +31,7 @@ MODULE_LICENSE("GPL");
 #define FEATURE_REPORT_ID 0x0d
 #define INPUT_REPORT_ID 0x5d
 
-#define INPUT_REPORT_SIZE 27
+#define INPUT_REPORT_SIZE 28
 
 #define MAX_CONTACTS 5
 
@@ -40,60 +40,139 @@ MODULE_LICENSE("GPL");
 #define MAX_TOUCH_MAJOR 8
 #define MAX_PRESSURE 0x80
 
-#define CONTACT_SIZE 5
 
-/**
- * struct asus_t - Tracks ASUS FTE I2C HID TouchPad data.
- * @input: Input device through which we report events.
- */
-struct asus_t {
-	struct input_dev *input;
-};
+#define REPORT_ID_OFFSET 0
 
-static int asus_raw_event(struct hid_device *hdev, struct hid_report *report, u8 *data, int size)
+#define CONTACT_DOWN_OFFSET 1
+#define CONTACT_DOWN_MASK 0x08
+
+#define BTN_LEFT_OFFSET 1
+#define BTN_LEFT_MASK 0x01
+
+#define CONTACT_DATA_OFFSET 2
+#define CONTACT_DATA_SIZE 5
+
+#define CONTACT_TOOL_TYPE_OFFSET 3
+#define CONTACT_TOOL_TYPE_MASK 0x80
+
+#define CONTACT_X_MSB_OFFSET 0
+#define CONTACT_X_MSB_BIT_SHIFT 4
+#define CONTACT_X_LSB_OFFSET 1
+
+#define CONTACT_Y_MSB_OFFSET 0
+#define CONTACT_Y_MSB_MASK 0x0f
+#define CONTACT_Y_LSB_OFFSET 2
+
+#define CONTACT_TOUCH_MAJOR_OFFSET 3
+#define CONTACT_TOUCH_MAJOR_BIT_SHIFT 4
+#define CONTACT_TOUCH_MAJOR_MASK 0x07
+
+#define CONTACT_PRESSURE_OFFSET 4
+#define CONTACT_PRESSURE_MASK 0x7f
+
+#define BYTE_BIT_SHIFT 8
+#define TRKID_SGN       ((TRKID_MAX + 1) >> 1)
+
+static void asus_report_contact_down(struct input_dev *input,
+							 int toolType, u8 *data)
 {
-	int i, contactNum = 0;
-	struct asus_t *drvdata = hid_get_drvdata(hdev);
-	struct input_dev *input = drvdata->input;
+	int x = ((data[CONTACT_X_MSB_OFFSET] >> CONTACT_X_MSB_BIT_SHIFT)
+				<< BYTE_BIT_SHIFT) | data[CONTACT_X_LSB_OFFSET];
+	int y = MAX_Y - (((data[CONTACT_Y_MSB_OFFSET] & CONTACT_Y_MSB_MASK)
+			       << BYTE_BIT_SHIFT) | data[CONTACT_Y_LSB_OFFSET]);
+	int touch_major = toolType == MT_TOOL_FINGER ?
+	   (data[CONTACT_TOUCH_MAJOR_OFFSET] >> CONTACT_TOUCH_MAJOR_BIT_SHIFT) &
+				     CONTACT_TOUCH_MAJOR_MASK : MAX_TOUCH_MAJOR;
+	int pressure = toolType == MT_TOOL_FINGER ?
+	   data[CONTACT_PRESSURE_OFFSET] & CONTACT_PRESSURE_MASK : MAX_PRESSURE;
+
+	input_report_abs(input, ABS_MT_POSITION_X, x);
+	input_report_abs(input, ABS_MT_POSITION_Y, y);
+	input_report_abs(input, ABS_MT_TOUCH_MAJOR, touch_major);
+	input_report_abs(input, ABS_MT_PRESSURE, pressure);
+}
+
+/* Required for Synaptics Palm Detection */
+static void asus_report_tool_width(struct input_dev *input)
+{
+        struct input_mt *mt = input->mt;
+        struct input_mt_slot *oldest;
+        int oldid, count, i;
+
+        oldest = NULL;
+        oldid = mt->trkid;
+        count = 0;
+
+        for (i = 0; i < mt->num_slots; ++i) {
+                struct input_mt_slot *ps = &mt->slots[i];
+                int id = input_mt_get_value(ps, ABS_MT_TRACKING_ID);
+
+                if (id < 0)
+                        continue;
+                if ((id - oldid) & TRKID_SGN) {
+                        oldest = ps;
+                        oldid = id;
+                }
+                count++;
+        }
+
+	if (oldest) {
+		input_report_abs(input, ABS_TOOL_WIDTH, input_mt_get_value(oldest, ABS_MT_TOUCH_MAJOR));
+	}
+}
+
+static void asus_report_input(struct input_dev *input, u8 *data)
+{
+	int i;
+	u8 *contactData = data + CONTACT_DATA_OFFSET;
 
 	for (i = 0; i < MAX_CONTACTS; i++) {
-		int down = data[1] & (0x08 << i);
-		int toolType = data[5 + contactNum*CONTACT_SIZE] & 0x80 ? MT_TOOL_PALM : MT_TOOL_FINGER;
-		int x = ((data[2 + contactNum*CONTACT_SIZE] >> 4) << 8) | data[3 + contactNum*CONTACT_SIZE];
-		int y = MAX_Y - (((data[2 + contactNum*CONTACT_SIZE] & 0x0f) << 8) | data[4 + contactNum*CONTACT_SIZE]);
-		int touch_major = toolType == MT_TOOL_FINGER ? (data[5 + contactNum*CONTACT_SIZE] >> 4) & 0x07 : MAX_TOUCH_MAJOR;
-		int pressure = toolType == MT_TOOL_FINGER ? data[6 + contactNum*CONTACT_SIZE] & 0x7f : MAX_PRESSURE;
+		bool down = data[CONTACT_DOWN_OFFSET] &
+						 (CONTACT_DOWN_MASK << i);
+		int toolType = contactData[CONTACT_TOOL_TYPE_OFFSET] &
+			 CONTACT_TOOL_TYPE_MASK ? MT_TOOL_PALM : MT_TOOL_FINGER;
 
 		input_mt_slot(input, i);
 		input_mt_report_slot_state(input, toolType, down);
 
 		if (down) {
-			input_report_abs(input, ABS_MT_POSITION_X, x);
-			input_report_abs(input, ABS_MT_POSITION_Y, y);
-			input_report_abs(input, ABS_MT_TOUCH_MAJOR, touch_major);
-			input_report_abs(input, ABS_MT_PRESSURE, pressure);
-			contactNum++;
+			asus_report_contact_down(input, toolType, contactData);
+			contactData += CONTACT_DATA_SIZE;
 		}
 	}
 
+	input_report_key(input, BTN_LEFT, data[BTN_LEFT_OFFSET] & BTN_LEFT_MASK);
+	asus_report_tool_width(input);
 	input_mt_report_pointer_emulation(input, true);
-	input_report_key(input, BTN_LEFT, data[1] & 1);
 
 	input_sync(input);
-	return 1;
+}
+
+static int asus_raw_event(struct hid_device *hdev,
+				 struct hid_report *report, u8 *data, int size)
+{
+	if (data[REPORT_ID_OFFSET] == INPUT_REPORT_ID &&
+						 size == INPUT_REPORT_SIZE) {
+		struct hid_input *hidinput;
+		list_for_each_entry(hidinput, &hdev->inputs, list) {
+			asus_report_input(hidinput->input, data);
+		}
+		return 1;
+	}
+
+	return 0;
 }
 
 static int asus_setup_input(struct hid_device *hdev, struct input_dev *input)
 {
 	int ret = input_mt_init_slots(input, MAX_CONTACTS, 0);
-	struct asus_t *drvdata = hid_get_drvdata(hdev);
 
 	if (ret) {
 		hid_err(hdev, "ASUS FTE input mt init slots failed: %d\n", ret);
 		return ret;
 	}
 
-	drvdata->input = input;
+	input->name = "Asus FTE TouchPad";
 
 	__set_bit(EV_KEY, input->evbit);
 	__set_bit(BTN_LEFT, input->keybit);
@@ -139,15 +218,17 @@ static int asus_input_configured(struct hid_device *hdev, struct hid_input *hi)
 
 static int asus_input_mapping(struct hid_device *hdev,
 				struct hid_input *hi, struct hid_field *field,
-				struct hid_usage *usage, unsigned long **bit, int *max)
+				struct hid_usage *usage, unsigned long **bit,
+				int *max)
 {
 	/* Don't map anything from the HID report. We do it all manually in asus_setup_input */
 	return -1;
 }
 
-static int start_multitouch(struct hid_device *hdev) {
+static int asus_start_multitouch(struct hid_device *hdev) {
 	unsigned char buf[] = { FEATURE_REPORT_ID, 0x00, 0x03, 0x01, 0x00 };
-	int ret = hid_hw_raw_request(hdev, FEATURE_REPORT_ID, buf, sizeof(buf), HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
+	int ret = hid_hw_raw_request(hdev, FEATURE_REPORT_ID, buf, sizeof(buf),
+					 HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
 	if (ret != sizeof(buf)) {
 		hid_err(hdev, "Failed to start multitouch: %d\n", ret);
 		return ret;
@@ -158,23 +239,13 @@ static int start_multitouch(struct hid_device *hdev) {
 
 #ifdef CONFIG_PM
 static int asus_resume(struct hid_device *hdev) {
-	return start_multitouch(hdev);
+	return asus_start_multitouch(hdev);
 }
 #endif
 
 static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
 {
 	int ret;
-	struct hid_report *report;
-	struct asus_t *drvdata;
-
-	drvdata = devm_kzalloc(&hdev->dev, sizeof(*drvdata), GFP_KERNEL);
-	if (drvdata == NULL) {
-		hid_err(hdev, "Can't alloc ASUS FTE descriptor\n");
-		return -ENOMEM;
-	}
-
-	hid_set_drvdata(hdev, drvdata);
 
 	hdev->quirks = HID_QUIRK_NO_INIT_REPORTS;
 
@@ -190,23 +261,7 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
 		return ret;
 	}
 
-	if (!drvdata->input) {
-		hid_err(hdev, "ASUS FTE input not registered\n");
-		ret = -ENOMEM;
-		goto err_stop_hw;
-	}
-
-	drvdata->input->name = "Asus FTE TouchPad";
-
-	report = hid_register_report(hdev, HID_INPUT_REPORT, INPUT_REPORT_ID);
-
-	if (!report) {
-		hid_err(hdev, "Unable to register input report\n");
-		ret = -ENOMEM;
-		goto err_stop_hw;
-	}
-
-	ret = start_multitouch(hdev);
+	ret = asus_start_multitouch(hdev);
 	if (ret)
 		goto err_stop_hw;
 
@@ -224,11 +279,11 @@ static const struct hid_device_id asus_touchpad[] = {
 MODULE_DEVICE_TABLE(hid, asus_touchpad);
 
 static struct hid_driver asus_driver = {
-	.name = "hid-asus-fte",
-	.id_table = asus_touchpad,
-	.probe = asus_probe,
-	.input_mapping = asus_input_mapping,
-	.input_configured = asus_input_configured,
+	.name			= "hid-asus-fte",
+	.id_table		= asus_touchpad,
+	.probe			= asus_probe,
+	.input_mapping		= asus_input_mapping,
+	.input_configured	= asus_input_configured,
 #ifdef CONFIG_PM
 	.resume			= asus_resume,
 	.reset_resume		= asus_resume,
