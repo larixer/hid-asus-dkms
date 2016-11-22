@@ -51,11 +51,11 @@ This will install DKMS driver into the system and reloads it immediately.
   ```
   ./dev-run.sh
   ```
-2. Script to restore back touchpad handling by i2c_hid driver
+2. Script to bind touchpad to this DKMS driver, until reboot
+  ```
+  ./dev-attach.sh
+  ```
+3. Script to restore back touchpad handling by hid_generic driver, until reboot
   ```
   ./dev-restore.sh
-  ```
-3. Script to simulate how the driver will behave on boot by removing and then adding the driver with modprobe
-  ```
-  ./dev-modprobe.sh
   ```

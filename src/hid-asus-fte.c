@@ -273,4 +273,5 @@ static struct hid_driver asus_driver = {
 	.raw_event = asus_raw_event
 };
 
+MODULE_ALIAS("acpi*:FTE1*:*");
 module_hid_driver(asus_driver);
