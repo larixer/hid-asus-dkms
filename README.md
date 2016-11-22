@@ -9,17 +9,14 @@
   cd hid-asus-dkms
   ```
 
-2. Build and load the kernel module into memory to check
-   that it's working for you.
-  ```
-  ./dev-run.sh
-  ```
-
-3. Install DKMS driver, so that it loads on boot.
+2. Install DKMS driver and load kernel module into memory.
 
   ```
   ./dkms-add.sh
   ```
+
+Check that multi-touch gestures work after executing this command
+and after reboot as well.
 
 ## Submitting issues
 
