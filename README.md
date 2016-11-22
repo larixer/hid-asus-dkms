@@ -1,12 +1,12 @@
-## ASUS FTE1* TouchPads DKMS driver
+## ASUS HID DKMS driver
 
 ## Getting Started
 
 1. Clone source code locally.
 
   ```
-  git clone https://github.com/vlasenko/hid-asus-fte-dkms.git
-  cd hid-asus-fte-dkms
+  git clone https://github.com/vlasenko/hid-asus-dkms.git
+  cd hid-asus-dkms
   ```
 
 2. Build and load the kernel module into memory to check
@@ -25,7 +25,7 @@
 
 Please use GitHub issue tracker for submitting issues with DKMS driver:
 
-https://github.com/vlasenko/hid-asus-fte-dkms/issues
+https://github.com/vlasenko/hid-asus-dkms/issues
 
 This is the most convenient place for us to provide support on this project.
 
@@ -33,7 +33,7 @@ This is the most convenient place for us to provide support on this project.
 
 1. Pull latest source code from repository.
   ```
-  cd hid-asus-fte-dkms
+  cd hid-asus-dkms
   git pull
   ```
 

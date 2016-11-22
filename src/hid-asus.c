@@ -1,11 +1,22 @@
 /*
- *   HID driver for ASUS i2c touchpad.
+ *  HID driver for Asus notebook built-in keyboard.
+ *  Fixes small logical maximum to match usage maximum.
  *
- *   The device has FTE100x ACPI ID, though the driver doesn't rely on it.
+ *  Currently supported devices are:
+ *    EeeBook X205TA
+ *    VivoBook E200HA
  *
- *   Copyright (c) 2016 Brendan McGrath <redmcg@redmandi.dyndns.org>
- *   Copyright (c) 2016 Victor Vlasenko <victor.vlasenko@sysgears.com>
- *   Copyright (c) 2016 Frederik Wenigwieser <frederik.wenigwieser@gmail.com>
+ *  Copyright (c) 2016 Yusuke Fujimaki <usk.fujimaki@gmail.com>
+ *
+ *  This module based on hid-ortek by
+ *  Copyright (c) 2010 Johnathon Harris <jmharris@gmail.com>
+ *  Copyright (c) 2011 Jiri Kosina
+ *
+ *  This module has been updated to add support for Asus i2c touchpad.
+ *
+ *  Copyright (c) 2016 Brendan McGrath <redmcg@redmandi.dyndns.org>
+ *  Copyright (c) 2016 Victor Vlasenko <victor.vlasenko@sysgears.com>
+ *  Copyright (c) 2016 Frederik Wenigwieser <frederik.wenigwieser@gmail.com>
  */
 
 /*
@@ -15,18 +26,17 @@
  * any later version.
  */
 
-#include <linux/module.h>
 #include <linux/hid.h>
+#include <linux/module.h>
 #include <linux/input/mt.h>
 
+#include "hid-ids.h"
+
+MODULE_AUTHOR("Yusuke Fujimaki <usk.fujimaki@gmail.com>");
 MODULE_AUTHOR("Brendan McGrath <redmcg@redmandi.dyndns.org>");
 MODULE_AUTHOR("Victor Vlasenko <victor.vlasenko@sysgears.com>");
-MODULE_DESCRIPTION("ASUS FTE I2C HID TouchPad");
-MODULE_LICENSE("GPL");
-
-
-#define VENDOR_ID 0x0b05
-#define DEVICE_ID 0x0101
+MODULE_AUTHOR("Frederik Wenigwieser <frederik.wenigwieser@gmail.com>");
+MODULE_DESCRIPTION("Asus HID Keyboard and TouchPad");
 
 #define FEATURE_REPORT_ID 0x0d
 #define INPUT_REPORT_ID 0x5d
@@ -162,9 +172,11 @@ static void asus_report_input(struct input_dev *input, u8 *data)
 static int asus_raw_event(struct hid_device *hdev,
 		struct hid_report *report, u8 *data, int size)
 {
-	if (data[REPORT_ID_OFFSET] == INPUT_REPORT_ID &&
-			size == INPUT_REPORT_SIZE) {
+	if (hdev->product == USB_DEVICE_ID_ASUSTEK_TOUCHPAD &&
+			 data[REPORT_ID_OFFSET] == INPUT_REPORT_ID &&
+						size == INPUT_REPORT_SIZE) {
 		struct hid_input *hidinput;
+
 		list_for_each_entry(hidinput, &hdev->inputs, list) {
 			asus_report_input(hidinput->input, data);
 		}
@@ -175,25 +187,28 @@ static int asus_raw_event(struct hid_device *hdev,
 }
 
 static int asus_input_configured(struct hid_device *hdev, struct hid_input *hi)
-{	int ret;
-	struct input_dev *input = hi->input;
+{
+	if (hdev->product == USB_DEVICE_ID_ASUSTEK_TOUCHPAD) {
+		int ret;
+		struct input_dev *input = hi->input;
 
-	input->name = "Asus FTE TouchPad";
+		input->name = "Asus TouchPad";
 
-	input_set_abs_params(input, ABS_MT_POSITION_X, 0, MAX_X, 0, 0);
-	input_set_abs_params(input, ABS_MT_POSITION_Y, 0, MAX_Y, 0, 0);
-	input_set_abs_params(input, ABS_TOOL_WIDTH, 0, MAX_TOUCH_MAJOR, 0, 0);
-	input_set_abs_params(input, ABS_MT_TOUCH_MAJOR, 0, MAX_TOUCH_MAJOR, 0, 0);
-	input_set_abs_params(input, ABS_MT_PRESSURE, 0, MAX_PRESSURE, 0, 0);
+		input_set_abs_params(input, ABS_MT_POSITION_X, 0, MAX_X, 0, 0);
+		input_set_abs_params(input, ABS_MT_POSITION_Y, 0, MAX_Y, 0, 0);
+		input_set_abs_params(input, ABS_TOOL_WIDTH, 0, MAX_TOUCH_MAJOR, 0, 0);
+		input_set_abs_params(input, ABS_MT_TOUCH_MAJOR, 0, MAX_TOUCH_MAJOR, 0, 0);
+		input_set_abs_params(input, ABS_MT_PRESSURE, 0, MAX_PRESSURE, 0, 0);
 
-	__set_bit(BTN_LEFT, input->keybit);
-	__set_bit(INPUT_PROP_BUTTONPAD, input->propbit);
+		__set_bit(BTN_LEFT, input->keybit);
+		__set_bit(INPUT_PROP_BUTTONPAD, input->propbit);
 
-	ret = input_mt_init_slots(input, MAX_CONTACTS, INPUT_MT_POINTER);
+		ret = input_mt_init_slots(input, MAX_CONTACTS, INPUT_MT_POINTER);
 
-	if (ret) {
-		hid_err(hdev, "ASUS FTE input mt init slots failed: %d\n", ret);
-		return ret;
+		if (ret) {
+			hid_err(hdev, "Asus input mt init slots failed: %d\n", ret);
+			return ret;
+		}
 	}
 
 	return 0;
@@ -204,16 +219,23 @@ static int asus_input_mapping(struct hid_device *hdev,
 		struct hid_usage *usage, unsigned long **bit,
 		int *max)
 {
-	/* Don't map anything from the HID report. We do it all manually in asus_setup_input */
-	return -1;
+	if (hdev->product == USB_DEVICE_ID_ASUSTEK_TOUCHPAD) {
+		/* Don't map anything from the HID report.
+		 * We do it all manually in asus_input_configured
+		 */
+		return -1;
+	}
+
+	return 0;
 }
 
-static int asus_start_multitouch(struct hid_device *hdev) {
+static int asus_start_multitouch(struct hid_device *hdev)
+{
 	unsigned char buf[] = { FEATURE_REPORT_ID, 0x00, 0x03, 0x01, 0x00 };
 	int ret = hid_hw_raw_request(hdev, FEATURE_REPORT_ID, buf, sizeof(buf),
 			HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
 	if (ret != sizeof(buf)) {
-		hid_err(hdev, "Failed to start multitouch: %d\n", ret);
+		hid_err(hdev, "Asus failed to start multitouch: %d\n", ret);
 		return ret;
 	}
 
@@ -221,8 +243,12 @@ static int asus_start_multitouch(struct hid_device *hdev) {
 }
 
 #ifdef CONFIG_PM
-static int asus_reset_resume(struct hid_device *hdev) {
-	return asus_start_multitouch(hdev);
+static int asus_reset_resume(struct hid_device *hdev)
+{
+	if (hdev->product == USB_DEVICE_ID_ASUSTEK_TOUCHPAD)
+		return asus_start_multitouch(hdev);
+
+	return 0;
 }
 #endif
 
@@ -230,23 +256,27 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
 {
 	int ret;
 
-	hdev->quirks = HID_QUIRK_NO_INIT_REPORTS;
+	if (hdev->product == USB_DEVICE_ID_ASUSTEK_TOUCHPAD)
+		hdev->quirks = HID_QUIRK_NO_INIT_REPORTS;
 
 	ret = hid_parse(hdev);
 	if (ret) {
-		hid_err(hdev, "ASUS FTE hid parse failed: %d\n", ret);
+		hid_err(hdev, "Asus hid parse failed: %d\n", ret);
 		return ret;
 	}
 
 	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT);
 	if (ret) {
-		hid_err(hdev, "ASUS FTE hw start failed: %d\n", ret);
+		hid_err(hdev, "Asus hw start failed: %d\n", ret);
 		return ret;
 	}
 
-	ret = asus_start_multitouch(hdev);
-	if (ret)
-		goto err_stop_hw;
+
+	if (hdev->product == USB_DEVICE_ID_ASUSTEK_TOUCHPAD) {
+		ret = asus_start_multitouch(hdev);
+		if (ret)
+			goto err_stop_hw;
+	}
 
 	return 0;
 err_stop_hw:
@@ -254,24 +284,37 @@ err_stop_hw:
 	return ret;
 }
 
-static const struct hid_device_id asus_touchpad[] = {
-	{ HID_I2C_DEVICE(VENDOR_ID,
-			DEVICE_ID), .driver_data = 0 },
+static __u8 *asus_report_fixup(struct hid_device *hdev, __u8 *rdesc,
+		unsigned int *rsize)
+{
+	if (hdev->product == USB_DEVICE_ID_ASUSTEK_NOTEBOOK_KEYBOARD &&
+			*rsize >= 56 && rdesc[54] == 0x25 && rdesc[55] == 0x65) {
+		hid_info(hdev, "Fixing up Asus notebook report descriptor\n");
+		rdesc[55] = 0xdd;
+	}
+	return rdesc;
+}
+
+static const struct hid_device_id asus_devices[] = {
+	{ HID_I2C_DEVICE(USB_VENDOR_ID_ASUSTEK, USB_DEVICE_ID_ASUSTEK_NOTEBOOK_KEYBOARD) },
+	{ HID_I2C_DEVICE(USB_VENDOR_ID_ASUSTEK, USB_DEVICE_ID_ASUSTEK_TOUCHPAD) },
 	{ }
 };
-MODULE_DEVICE_TABLE(hid, asus_touchpad);
+MODULE_DEVICE_TABLE(hid, asus_devices);
 
 static struct hid_driver asus_driver = {
-	.name			= "hid-asus-fte",
-	.id_table		= asus_touchpad,
-	.probe			= asus_probe,
-	.input_mapping		= asus_input_mapping,
-	.input_configured	= asus_input_configured,
+	.name			= "hid-asus",
+	.id_table		= asus_devices,
+	.report_fixup		= asus_report_fixup,
+	.probe                  = asus_probe,
+	.input_mapping          = asus_input_mapping,
+	.input_configured       = asus_input_configured,
 #ifdef CONFIG_PM
-	.reset_resume		= asus_reset_resume,
+	.reset_resume           = asus_reset_resume,
 #endif
-	.raw_event = asus_raw_event
+	.raw_event		= asus_raw_event
 };
-
-MODULE_ALIAS("acpi*:FTE1*:*");
 module_hid_driver(asus_driver);
+
+MODULE_LICENSE("GPL");
+MODULE_ALIAS("acpi*:FTE1*:*");
