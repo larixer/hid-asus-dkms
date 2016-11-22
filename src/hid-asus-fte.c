@@ -76,17 +76,23 @@ MODULE_LICENSE("GPL");
 static void asus_report_contact_down(struct input_dev *input,
 		int toolType, u8 *data)
 {
-	int x = ((data[CONTACT_X_MSB_OFFSET] >> CONTACT_X_MSB_BIT_SHIFT)
-			<< BYTE_BIT_SHIFT) | data[CONTACT_X_LSB_OFFSET];
-	int y = MAX_Y - (((data[CONTACT_Y_MSB_OFFSET] & CONTACT_Y_MSB_MASK)
-			<< BYTE_BIT_SHIFT) | data[CONTACT_Y_LSB_OFFSET]);
-	int touch_major = toolType == MT_TOOL_FINGER ?
-			(data[CONTACT_TOUCH_MAJOR_OFFSET]
-			>> CONTACT_TOUCH_MAJOR_BIT_SHIFT) &
-			CONTACT_TOUCH_MAJOR_MASK : MAX_TOUCH_MAJOR;
-	int pressure = toolType == MT_TOOL_FINGER ?
-			data[CONTACT_PRESSURE_OFFSET] & CONTACT_PRESSURE_MASK
-			: MAX_PRESSURE;
+	int x, y, touch_major, pressure;
+
+	x = data[CONTACT_X_MSB_OFFSET] >> CONTACT_X_MSB_BIT_SHIFT;
+	x = (x << BYTE_BIT_SHIFT) | data[CONTACT_X_LSB_OFFSET];
+
+	y = (data[CONTACT_Y_MSB_OFFSET] & CONTACT_Y_MSB_MASK);
+	y = MAX_Y - ((y << BYTE_BIT_SHIFT) | data[CONTACT_Y_LSB_OFFSET]);
+
+	if (toolType == MT_TOOL_PALM) {
+		touch_major = MAX_TOUCH_MAJOR;
+		pressure = MAX_PRESSURE;
+	} else {
+		touch_major = data[CONTACT_TOUCH_MAJOR_OFFSET];
+		touch_major >>= CONTACT_TOUCH_MAJOR_BIT_SHIFT;
+		touch_major &= CONTACT_TOUCH_MAJOR_MASK;
+		pressure = data[CONTACT_PRESSURE_OFFSET] & CONTACT_PRESSURE_MASK;
+	}
 
 	input_report_abs(input, ABS_MT_POSITION_X, x);
 	input_report_abs(input, ABS_MT_POSITION_Y, y);
