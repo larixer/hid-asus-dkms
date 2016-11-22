@@ -174,9 +174,9 @@ static int asus_raw_event(struct hid_device *hdev,
 	return 0;
 }
 
-static int asus_setup_input(struct hid_device *hdev, struct input_dev *input)
-{
-	int ret;
+static int asus_input_configured(struct hid_device *hdev, struct hid_input *hi)
+{	int ret;
+	struct input_dev *input = hi->input;
 
 	input->name = "Asus FTE TouchPad";
 
@@ -195,15 +195,6 @@ static int asus_setup_input(struct hid_device *hdev, struct input_dev *input)
 		hid_err(hdev, "ASUS FTE input mt init slots failed: %d\n", ret);
 		return ret;
 	}
-
-	return 0;
-}
-
-static int asus_input_configured(struct hid_device *hdev, struct hid_input *hi)
-{
-	int ret = asus_setup_input(hdev, hi->input);
-	if (ret)
-		return ret;
 
 	return 0;
 }
