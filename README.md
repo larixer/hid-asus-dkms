@@ -5,7 +5,7 @@
 1. Clone source code locally.
 
   ```
-  git clone git@github.com:vlasenko/hid-asus-fte-dkms.git
+  git clone https://github.com/vlasenko/hid-asus-fte-dkms.git
   cd hid-asus-fte-dkms
   ```
 
