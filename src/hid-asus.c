@@ -214,9 +214,21 @@ static int asus_input_mapping(struct hid_device *hdev,
 
 static int asus_start_multitouch(struct hid_device *hdev)
 {
-	unsigned char buf[] = { FEATURE_REPORT_ID, 0x00, 0x03, 0x01, 0x00 };
-	int ret = hid_hw_raw_request(hdev, FEATURE_REPORT_ID, buf, sizeof(buf),
-			HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
+	int ret;
+	const unsigned char buf[] = { FEATURE_REPORT_ID, 0x00, 0x03, 0x01, 0x00 };
+	unsigned char *dmabuf = kmemdup(buf, sizeof(buf), GFP_KERNEL);
+
+	if (!dmabuf) {
+		ret = -ENOMEM;
+		hid_err(hdev, "Asus failed to alloc dma buf: %d\n", ret);
+		return ret;
+	}
+
+	ret = hid_hw_raw_request(hdev, dmabuf[0], dmabuf, sizeof(buf),
+					HID_FEATURE_REPORT, HID_REQ_SET_REPORT);
+
+	kfree(dmabuf);
+
 	if (ret != sizeof(buf)) {
 		hid_err(hdev, "Asus failed to start multitouch: %d\n", ret);
 		return ret;
