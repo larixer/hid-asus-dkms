@@ -214,14 +214,6 @@ static int __i2c_hid_command(struct i2c_client *client,
 
 	ret = 0;
 
-	if (wait) {
-		i2c_hid_dbg(ihid, "%s: waiting...\n", __func__);
-		if (!wait_event_timeout(ihid->wait,
-				!test_bit(I2C_HID_RESET_PENDING, &ihid->flags),
-				msecs_to_jiffies(5000)))
-			ret = -ENODATA;
-		i2c_hid_dbg(ihid, "%s: finished.\n", __func__);
-	}
 
 	return ret;
 }
@@ -354,7 +346,7 @@ static int i2c_hid_set_power(struct i2c_client *client, int power_state)
 	return ret;
 }
 
-static int i2c_hid_hwreset(struct i2c_client *client)
+static int i2c_hid_start_hwreset(struct i2c_client *client)
 {
 	struct i2c_hid *ihid = i2c_get_clientdata(client);
 	int ret;
@@ -383,6 +375,31 @@ static int i2c_hid_hwreset(struct i2c_client *client)
 out_unlock:
 	mutex_unlock(&ihid->reset_lock);
 	return ret;
+}
+
+static int i2c_hid_finish_hwreset(struct i2c_client *client)
+{
+	struct i2c_hid *ihid = i2c_get_clientdata(client);
+	int ret = 0;
+
+	i2c_hid_dbg(ihid, "%s: waiting...\n", __func__);
+	if (!wait_event_timeout(ihid->wait,
+			!test_bit(I2C_HID_RESET_PENDING, &ihid->flags),
+			msecs_to_jiffies(5000)))
+		ret = -ENODATA;
+	i2c_hid_dbg(ihid, "%s: finished.\n", __func__);
+
+	return ret;
+}
+
+static int i2c_hid_hwreset(struct i2c_client *client)
+{
+	int ret = i2c_hid_start_hwreset(client);
+
+	if (ret)
+		return ret;
+
+	return i2c_hid_finish_hwreset(client);
 }
 
 static void i2c_hid_get_input(struct i2c_hid *ihid)
@@ -667,11 +684,7 @@ static int i2c_hid_parse(struct hid_device *hid)
 		return -EINVAL;
 	}
 
-	do {
-		ret = i2c_hid_hwreset(client);
-		if (ret)
-			msleep(1000);
-	} while (tries-- > 0 && ret);
+	ret = i2c_hid_start_hwreset(client);
 
 	if (ret)
 		return ret;
@@ -701,6 +714,14 @@ static int i2c_hid_parse(struct hid_device *hid)
 		return ret;
 	}
 
+	ret = i2c_hid_finish_hwreset(client);
+
+	while (tries-- > 0 && ret) {
+		ret = i2c_hid_hwreset(client);
+		if (ret) {
+			msleep(1000);
+		}
+	}
 	return 0;
 }
 
