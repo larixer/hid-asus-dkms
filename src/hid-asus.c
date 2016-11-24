@@ -59,7 +59,21 @@ MODULE_DESCRIPTION("Asus HID Keyboard and TouchPad");
 #define CONTACT_TOUCH_MAJOR_MASK 0x07
 #define CONTACT_PRESSURE_MASK 0x7f
 
+#define QUIRK_FIX_NOTEBOOK_REPORT	BIT(0)
+#define QUIRK_NO_INIT_REPORTS		BIT(1)
+#define QUIRK_SKIP_INPUT_MAPPING	BIT(2)
+#define QUIRK_IS_MULTITOUCH		BIT(3)
+
+#define NOTEBOOK_QUIRKS			QUIRK_FIX_NOTEBOOK_REPORT
+#define TOUCHPAD_QUIRKS			(QUIRK_NO_INIT_REPORTS | \
+						 QUIRK_SKIP_INPUT_MAPPING | \
+						 QUIRK_IS_MULTITOUCH)
+
 #define TRKID_SGN       ((TRKID_MAX + 1) >> 1)
+
+struct asus_drvdata {
+	unsigned long quirks;
+};
 
 static void asus_report_contact_down(struct input_dev *input,
 		int toolType, u8 *data)
@@ -141,7 +155,8 @@ static void asus_report_input(struct input_dev *input, u8 *data)
 static int asus_raw_event(struct hid_device *hdev,
 		struct hid_report *report, u8 *data, int size)
 {
-	if (hdev->product == USB_DEVICE_ID_ASUSTEK_TOUCHPAD &&
+	struct asus_drvdata *drvdata = hid_get_drvdata(hdev);
+	if (drvdata->quirks & QUIRK_IS_MULTITOUCH &&
 					 data[0] == INPUT_REPORT_ID &&
 						size == INPUT_REPORT_SIZE) {
 		struct hid_input *hidinput;
@@ -157,7 +172,8 @@ static int asus_raw_event(struct hid_device *hdev,
 
 static int asus_input_configured(struct hid_device *hdev, struct hid_input *hi)
 {
-	if (hdev->product == USB_DEVICE_ID_ASUSTEK_TOUCHPAD) {
+	struct asus_drvdata *drvdata = hid_get_drvdata(hdev);
+	if (drvdata->quirks & QUIRK_IS_MULTITOUCH) {
 		int ret;
 		struct input_dev *input = hi->input;
 
@@ -188,7 +204,8 @@ static int asus_input_mapping(struct hid_device *hdev,
 		struct hid_usage *usage, unsigned long **bit,
 		int *max)
 {
-	if (hdev->product == USB_DEVICE_ID_ASUSTEK_TOUCHPAD) {
+	struct asus_drvdata *drvdata = hid_get_drvdata(hdev);
+	if (drvdata->quirks & QUIRK_SKIP_INPUT_MAPPING) {
 		/* Don't map anything from the HID report.
 		 * We do it all manually in asus_input_configured
 		 */
@@ -214,7 +231,8 @@ static int asus_start_multitouch(struct hid_device *hdev)
 #ifdef CONFIG_PM
 static int asus_reset_resume(struct hid_device *hdev)
 {
-	if (hdev->product == USB_DEVICE_ID_ASUSTEK_TOUCHPAD)
+	struct asus_drvdata *drvdata = hid_get_drvdata(hdev);
+	if (drvdata->quirks & QUIRK_IS_MULTITOUCH)
 		return asus_start_multitouch(hdev);
 
 	return 0;
@@ -225,8 +243,20 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
 {
 	int ret;
 
-	if (hdev->product == USB_DEVICE_ID_ASUSTEK_TOUCHPAD)
-		hdev->quirks = HID_QUIRK_NO_INIT_REPORTS;
+	struct asus_drvdata *drvdata;
+
+	drvdata = devm_kzalloc(&hdev->dev, sizeof(*drvdata), GFP_KERNEL);
+	if (drvdata == NULL) {
+		hid_err(hdev, "Can't alloc Asus descriptor\n");
+		return -ENOMEM;
+	}
+
+	hid_set_drvdata(hdev, drvdata);
+
+	drvdata->quirks = id->driver_data;
+
+	if (drvdata->quirks & QUIRK_NO_INIT_REPORTS)
+		hdev->quirks |= HID_QUIRK_NO_INIT_REPORTS;
 
 	ret = hid_parse(hdev);
 	if (ret) {
@@ -241,7 +271,7 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
 	}
 
 
-	if (hdev->product == USB_DEVICE_ID_ASUSTEK_TOUCHPAD) {
+	if (drvdata->quirks & QUIRK_IS_MULTITOUCH) {
 		ret = asus_start_multitouch(hdev);
 		if (ret)
 			goto err_stop_hw;
@@ -256,7 +286,8 @@ err_stop_hw:
 static __u8 *asus_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 		unsigned int *rsize)
 {
-	if (hdev->product == USB_DEVICE_ID_ASUSTEK_NOTEBOOK_KEYBOARD &&
+	struct asus_drvdata *drvdata = hid_get_drvdata(hdev);
+	if (drvdata->quirks & QUIRK_FIX_NOTEBOOK_REPORT &&
 			*rsize >= 56 && rdesc[54] == 0x25 && rdesc[55] == 0x65) {
 		hid_info(hdev, "Fixing up Asus notebook report descriptor\n");
 		rdesc[55] = 0xdd;
@@ -265,8 +296,10 @@ static __u8 *asus_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 }
 
 static const struct hid_device_id asus_devices[] = {
-	{ HID_I2C_DEVICE(USB_VENDOR_ID_ASUSTEK, USB_DEVICE_ID_ASUSTEK_NOTEBOOK_KEYBOARD) },
-	{ HID_I2C_DEVICE(USB_VENDOR_ID_ASUSTEK, USB_DEVICE_ID_ASUSTEK_TOUCHPAD) },
+	{ HID_I2C_DEVICE(USB_VENDOR_ID_ASUSTEK,
+		 USB_DEVICE_ID_ASUSTEK_NOTEBOOK_KEYBOARD), NOTEBOOK_QUIRKS},
+	{ HID_I2C_DEVICE(USB_VENDOR_ID_ASUSTEK,
+			 USB_DEVICE_ID_ASUSTEK_TOUCHPAD), TOUCHPAD_QUIRKS },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, asus_devices);
