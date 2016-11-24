@@ -237,8 +237,7 @@ static int asus_start_multitouch(struct hid_device *hdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static int asus_reset_resume(struct hid_device *hdev)
+static int __maybe_unused asus_reset_resume(struct hid_device *hdev)
 {
 	struct asus_drvdata *drvdata = hid_get_drvdata(hdev);
 	if (drvdata->quirks & QUIRK_IS_MULTITOUCH)
@@ -246,7 +245,6 @@ static int asus_reset_resume(struct hid_device *hdev)
 
 	return 0;
 }
-#endif
 
 static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
 {
