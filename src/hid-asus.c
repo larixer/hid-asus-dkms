@@ -50,58 +50,31 @@ MODULE_DESCRIPTION("Asus HID Keyboard and TouchPad");
 #define MAX_TOUCH_MAJOR 8
 #define MAX_PRESSURE 128
 
-
-#define REPORT_ID_OFFSET 0
-
-#define CONTACT_DOWN_OFFSET 1
-#define CONTACT_DOWN_MASK 0x08
-
-#define BTN_LEFT_OFFSET 1
-#define BTN_LEFT_MASK 0x01
-
-#define CONTACT_DATA_OFFSET 2
 #define CONTACT_DATA_SIZE 5
 
-#define CONTACT_TOOL_TYPE_OFFSET 3
+#define CONTACT_DOWN_MASK 0x08
+#define BTN_LEFT_MASK 0x01
 #define CONTACT_TOOL_TYPE_MASK 0x80
-
-#define CONTACT_X_MSB_OFFSET 0
-#define CONTACT_X_MSB_BIT_SHIFT 4
-#define CONTACT_X_LSB_OFFSET 1
-
-#define CONTACT_Y_MSB_OFFSET 0
+#define CONTACT_X_MSB_MASK 0xf0
 #define CONTACT_Y_MSB_MASK 0x0f
-#define CONTACT_Y_LSB_OFFSET 2
-
-#define CONTACT_TOUCH_MAJOR_OFFSET 3
-#define CONTACT_TOUCH_MAJOR_BIT_SHIFT 4
 #define CONTACT_TOUCH_MAJOR_MASK 0x07
-
-#define CONTACT_PRESSURE_OFFSET 4
 #define CONTACT_PRESSURE_MASK 0x7f
 
-#define BYTE_BIT_SHIFT 8
 #define TRKID_SGN       ((TRKID_MAX + 1) >> 1)
 
 static void asus_report_contact_down(struct input_dev *input,
 		int toolType, u8 *data)
 {
-	int x, y, touch_major, pressure;
-
-	x = data[CONTACT_X_MSB_OFFSET] >> CONTACT_X_MSB_BIT_SHIFT;
-	x = (x << BYTE_BIT_SHIFT) | data[CONTACT_X_LSB_OFFSET];
-
-	y = (data[CONTACT_Y_MSB_OFFSET] & CONTACT_Y_MSB_MASK);
-	y = MAX_Y - ((y << BYTE_BIT_SHIFT) | data[CONTACT_Y_LSB_OFFSET]);
+	int touch_major, pressure;
+	int x = (data[0] & CONTACT_X_MSB_MASK) << 4 | data[1];
+	int y = MAX_Y - ((data[0] & CONTACT_Y_MSB_MASK) << 8 | data[2]);
 
 	if (toolType == MT_TOOL_PALM) {
 		touch_major = MAX_TOUCH_MAJOR;
 		pressure = MAX_PRESSURE;
 	} else {
-		touch_major = data[CONTACT_TOUCH_MAJOR_OFFSET];
-		touch_major >>= CONTACT_TOUCH_MAJOR_BIT_SHIFT;
-		touch_major &= CONTACT_TOUCH_MAJOR_MASK;
-		pressure = data[CONTACT_PRESSURE_OFFSET] & CONTACT_PRESSURE_MASK;
+		touch_major = (data[3] >> 4) & CONTACT_TOUCH_MAJOR_MASK;
+		pressure = data[4] & CONTACT_PRESSURE_MASK;
 	}
 
 	input_report_abs(input, ABS_MT_POSITION_X, x);
@@ -143,14 +116,12 @@ static void asus_report_tool_width(struct input_dev *input)
 static void asus_report_input(struct input_dev *input, u8 *data)
 {
 	int i;
-	u8 *contactData = data + CONTACT_DATA_OFFSET;
+	u8 *contactData = data + 2;
 
 	for (i = 0; i < MAX_CONTACTS; i++) {
-		bool down = data[CONTACT_DOWN_OFFSET] &
-				(CONTACT_DOWN_MASK << i);
-		int toolType = contactData[CONTACT_TOOL_TYPE_OFFSET] &
-				CONTACT_TOOL_TYPE_MASK ? MT_TOOL_PALM
-				: MT_TOOL_FINGER;
+		bool down = data[1] & (CONTACT_DOWN_MASK << i);
+		int toolType = contactData[3] & CONTACT_TOOL_TYPE_MASK ?
+						MT_TOOL_PALM : MT_TOOL_FINGER;
 
 		input_mt_slot(input, i);
 		input_mt_report_slot_state(input, toolType, down);
@@ -161,8 +132,7 @@ static void asus_report_input(struct input_dev *input, u8 *data)
 		}
 	}
 
-	input_report_key(input, BTN_LEFT,
-			data[BTN_LEFT_OFFSET] & BTN_LEFT_MASK);
+	input_report_key(input, BTN_LEFT, data[1] & BTN_LEFT_MASK);
 	asus_report_tool_width(input);
 
 	input_mt_sync_frame(input);
@@ -173,7 +143,7 @@ static int asus_raw_event(struct hid_device *hdev,
 		struct hid_report *report, u8 *data, int size)
 {
 	if (hdev->product == USB_DEVICE_ID_ASUSTEK_TOUCHPAD &&
-			 data[REPORT_ID_OFFSET] == INPUT_REPORT_ID &&
+					 data[0] == INPUT_REPORT_ID &&
 						size == INPUT_REPORT_SIZE) {
 		struct hid_input *hidinput;
 
