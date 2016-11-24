@@ -73,6 +73,7 @@ MODULE_DESCRIPTION("Asus HID Keyboard and TouchPad");
 
 struct asus_drvdata {
 	unsigned long quirks;
+	struct input_dev *input;
 };
 
 static void asus_report_contact_down(struct input_dev *input,
@@ -159,11 +160,7 @@ static int asus_raw_event(struct hid_device *hdev,
 	if (drvdata->quirks & QUIRK_IS_MULTITOUCH &&
 					 data[0] == INPUT_REPORT_ID &&
 						size == INPUT_REPORT_SIZE) {
-		struct hid_input *hidinput;
-
-		list_for_each_entry(hidinput, &hdev->inputs, list) {
-			asus_report_input(hidinput->input, data);
-		}
+		asus_report_input(drvdata->input, data);
 		return 1;
 	}
 
@@ -176,8 +173,6 @@ static int asus_input_configured(struct hid_device *hdev, struct hid_input *hi)
 	if (drvdata->quirks & QUIRK_IS_MULTITOUCH) {
 		int ret;
 		struct input_dev *input = hi->input;
-
-		input->name = "Asus TouchPad";
 
 		input_set_abs_params(input, ABS_MT_POSITION_X, 0, MAX_X, 0, 0);
 		input_set_abs_params(input, ABS_MT_POSITION_Y, 0, MAX_Y, 0, 0);
@@ -194,6 +189,8 @@ static int asus_input_configured(struct hid_device *hdev, struct hid_input *hi)
 			hid_err(hdev, "Asus input mt init slots failed: %d\n", ret);
 			return ret;
 		}
+
+		drvdata->input = input;
 	}
 
 	return 0;
@@ -270,6 +267,13 @@ static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
 		return ret;
 	}
 
+	if (!drvdata->input) {
+		hid_err(hdev, "Asus input not registered\n");
+		ret = -ENOMEM;
+		goto err_stop_hw;
+	}
+
+	drvdata->input->name = "Asus TouchPad";
 
 	if (drvdata->quirks & QUIRK_IS_MULTITOUCH) {
 		ret = asus_start_multitouch(hdev);
