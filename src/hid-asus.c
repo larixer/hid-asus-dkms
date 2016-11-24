@@ -45,10 +45,10 @@ MODULE_DESCRIPTION("Asus HID Keyboard and TouchPad");
 
 #define MAX_CONTACTS 5
 
-#define MAX_X 0x0aea
-#define MAX_Y 0x06de
+#define MAX_X 2794
+#define MAX_Y 1758
 #define MAX_TOUCH_MAJOR 8
-#define MAX_PRESSURE 0x80
+#define MAX_PRESSURE 128
 
 
 #define REPORT_ID_OFFSET 0
