@@ -52,7 +52,6 @@ MODULE_DESCRIPTION("Asus HID Keyboard and TouchPad");
 
 #define CONTACT_DATA_SIZE 5
 
-#define CONTACT_DOWN_MASK 0x08
 #define BTN_LEFT_MASK 0x01
 #define CONTACT_TOOL_TYPE_MASK 0x80
 #define CONTACT_X_MSB_MASK 0xf0
@@ -119,7 +118,7 @@ static void asus_report_input(struct input_dev *input, u8 *data)
 	u8 *contactData = data + 2;
 
 	for (i = 0; i < MAX_CONTACTS; i++) {
-		bool down = data[1] & (CONTACT_DOWN_MASK << i);
+		bool down = !!(data[1] & BIT(i+3));
 		int toolType = contactData[3] & CONTACT_TOOL_TYPE_MASK ?
 						MT_TOOL_PALM : MT_TOOL_FINGER;
 
