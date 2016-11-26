@@ -333,4 +333,3 @@ static struct hid_driver asus_driver = {
 module_hid_driver(asus_driver);
 
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("acpi*:FTE1*:*");
