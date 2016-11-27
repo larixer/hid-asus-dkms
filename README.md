@@ -3,7 +3,7 @@
 ## Prerequisites
 
 1. Ensure secure boot is not enabled. If you have secure boot enabled, 
-after installing this DKMS driver you will get this erro message in kernel log:
+after installing this DKMS driver you will get this error message in kernel log:
 
   ```
   modprobe: ERROR: could not insert 'hid_asus': Required key not available
