@@ -1,5 +1,20 @@
 ## ASUS HID DKMS driver
 
+## Prerequisites
+
+1. Ensure secure boot is not enabled. If you have secure boot enabled, 
+after installing this DKMS driver you will get this erro message in kernel log:
+
+  ```
+  modprobe: ERROR: could not insert 'hid_asus': Required key not available
+  ```
+
+You won't be able to run third-party (aka 'out of tree') kernel modules with 
+secure boot. This is because for secure boot to work all the modules 
+have to be signed - and given our module is third party it hasn't been signed.
+
+If you want to use this module you'll need to disable secure boot.
+
 ## Getting Started
 
 1. Clone source code locally.
