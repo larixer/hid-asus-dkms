@@ -157,6 +157,7 @@ static int asus_raw_event(struct hid_device *hdev,
 		struct hid_report *report, u8 *data, int size)
 {
 	struct asus_drvdata *drvdata = hid_get_drvdata(hdev);
+
 	if (drvdata->quirks & QUIRK_IS_MULTITOUCH &&
 					 data[0] == INPUT_REPORT_ID &&
 						size == INPUT_REPORT_SIZE) {
@@ -170,6 +171,7 @@ static int asus_raw_event(struct hid_device *hdev,
 static int asus_input_configured(struct hid_device *hdev, struct hid_input *hi)
 {
 	struct asus_drvdata *drvdata = hid_get_drvdata(hdev);
+
 	if (drvdata->quirks & QUIRK_IS_MULTITOUCH) {
 		int ret;
 		struct input_dev *input = hi->input;
@@ -202,6 +204,7 @@ static int asus_input_mapping(struct hid_device *hdev,
 		int *max)
 {
 	struct asus_drvdata *drvdata = hid_get_drvdata(hdev);
+
 	if (drvdata->quirks & QUIRK_SKIP_INPUT_MAPPING) {
 		/* Don't map anything from the HID report.
 		 * We do it all manually in asus_input_configured
@@ -240,6 +243,7 @@ static int asus_start_multitouch(struct hid_device *hdev)
 static int __maybe_unused asus_reset_resume(struct hid_device *hdev)
 {
 	struct asus_drvdata *drvdata = hid_get_drvdata(hdev);
+
 	if (drvdata->quirks & QUIRK_IS_MULTITOUCH)
 		return asus_start_multitouch(hdev);
 
@@ -249,7 +253,6 @@ static int __maybe_unused asus_reset_resume(struct hid_device *hdev)
 static int asus_probe(struct hid_device *hdev, const struct hid_device_id *id)
 {
 	int ret;
-
 	struct asus_drvdata *drvdata;
 
 	drvdata = devm_kzalloc(&hdev->dev, sizeof(*drvdata), GFP_KERNEL);
@@ -301,6 +304,7 @@ static __u8 *asus_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 		unsigned int *rsize)
 {
 	struct asus_drvdata *drvdata = hid_get_drvdata(hdev);
+
 	if (drvdata->quirks & QUIRK_FIX_NOTEBOOK_REPORT &&
 			*rsize >= 56 && rdesc[54] == 0x25 && rdesc[55] == 0x65) {
 		hid_info(hdev, "Fixing up Asus notebook report descriptor\n");
