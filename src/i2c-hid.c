@@ -368,9 +368,12 @@ static int i2c_hid_start_hwreset(struct i2c_client *client)
 
 	ret = i2c_hid_command(client, &hid_reset_cmd, NULL, 0);
 	if (ret) {
-		dev_err(&client->dev, "failed to reset device.\n");
+		dev_err(&client->dev, "failed to send reset to device.\n");
 		i2c_hid_set_power(client, I2C_HID_PWR_SLEEP);
+		goto out_unlock;
 	}
+
+	return ret;
 
 out_unlock:
 	mutex_unlock(&ihid->reset_lock);
@@ -388,6 +391,13 @@ static int i2c_hid_finish_hwreset(struct i2c_client *client)
 			msecs_to_jiffies(5000)))
 		ret = -ENODATA;
 	i2c_hid_dbg(ihid, "%s: finished.\n", __func__);
+
+	if (ret) {
+		dev_err(&client->dev, "device never acknowledged reset completion.\n");
+		i2c_hid_set_power(client, I2C_HID_PWR_SLEEP);
+	}
+
+	mutex_unlock(&ihid->reset_lock);
 
 	return ret;
 }
@@ -693,7 +703,8 @@ static int i2c_hid_parse(struct hid_device *hid)
 
 	if (!rdesc) {
 		dbg_hid("couldn't allocate rdesc memory\n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto out_unlock;
 	}
 
 	i2c_hid_dbg(ihid, "asking HID report descriptor\n");
@@ -702,7 +713,8 @@ static int i2c_hid_parse(struct hid_device *hid)
 	if (ret) {
 		hid_err(hid, "reading report descriptor failed\n");
 		kfree(rdesc);
-		return -EIO;
+		ret = -EIO;
+		goto out_unlock;
 	}
 
 	i2c_hid_dbg(ihid, "Report Descriptor: %*ph\n", rsize, rdesc);
@@ -711,7 +723,7 @@ static int i2c_hid_parse(struct hid_device *hid)
 	kfree(rdesc);
 	if (ret) {
 		dbg_hid("parsing report descriptor failed\n");
-		return ret;
+		goto out_unlock;
 	}
 
 	ret = i2c_hid_finish_hwreset(client);
@@ -723,6 +735,10 @@ static int i2c_hid_parse(struct hid_device *hid)
 		}
 	}
 	return 0;
+
+out_unlock:
+	mutex_unlock(&ihid->reset_lock);
+	return ret;
 }
 
 static int i2c_hid_start(struct hid_device *hid)
