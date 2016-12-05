@@ -5,15 +5,17 @@
 1. Ensure secure boot is not enabled. If you have secure boot enabled, 
 after installing this DKMS driver you will get this error message in kernel log:
 
-  ```
-  modprobe: ERROR: could not insert 'hid_asus': Required key not available
-  ```
+    ```
+    modprobe: ERROR: could not insert 'hid_asus': Required key not available
+    ```
 
-You won't be able to run third-party (aka 'out of tree') kernel modules with 
-secure boot. This is because for secure boot to work all the modules 
-have to be signed - and given our module is third party it hasn't been signed.
+    You won't be able to run third-party (aka 'out of tree') kernel modules with 
+    secure boot. This is because for secure boot to work all the modules 
+    have to be signed - and given our module is third party it hasn't been signed.
 
-If you want to use this module you'll need to disable secure boot.
+    If you want to use this module you'll need to disable secure boot.
+
+2. Ensure Linux kernel headers installed for your kernel version.
 
 ## Getting Started
 
