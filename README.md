@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-1. Ensure secure boot is not enabled. If you have secure boot enabled, 
+1. Ensure secure boot is not enabled (or you have an acceptable alterantive in place). With end-to-end secure boot enabled, 
 after installing this DKMS driver you will get this error message in kernel log:
 
     ```
