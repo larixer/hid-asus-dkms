@@ -45,6 +45,7 @@
 
 /* quirks to control the device */
 #define I2C_HID_QUIRK_SET_PWR_WAKEUP_DEV	BIT(0)
+#define I2C_HID_QUIRK_SLEEP_BEFORE_RESET	BIT(1)
 
 /* flags */
 #define I2C_HID_STARTED		0
@@ -156,17 +157,26 @@ struct i2c_hid {
 
 	bool			irq_wake_enabled;
 	struct mutex		reset_lock;
+
+	__u32			reset_usleep_low;
+	__u32			reset_usleep_high;
 };
 
 static const struct i2c_hid_quirks {
 	__u16 idVendor;
 	__u16 idProduct;
 	__u32 quirks;
+	__u32 reset_usleep_low;
+	__u32 reset_usleep_high;
 } i2c_hid_quirks[] = {
 	{ USB_VENDOR_ID_WEIDA, USB_DEVICE_ID_WEIDA_8752,
 		I2C_HID_QUIRK_SET_PWR_WAKEUP_DEV },
 	{ USB_VENDOR_ID_WEIDA, USB_DEVICE_ID_WEIDA_8755,
 		I2C_HID_QUIRK_SET_PWR_WAKEUP_DEV },
+	{ USB_VENDOR_ID_ASUSTEK, USB_DEVICE_ID_ASUSTEK_TOUCHPAD,
+		I2C_HID_QUIRK_SLEEP_BEFORE_RESET,
+		 .reset_usleep_low = 750,
+		 .reset_usleep_high = 5000 },
 	{ 0, 0 }
 };
 
@@ -177,16 +187,16 @@ static const struct i2c_hid_quirks {
  *
  * Returns: a u32 quirks value.
  */
-static u32 i2c_hid_lookup_quirk(const u16 idVendor, const u16 idProduct)
+static const struct i2c_hid_quirks* i2c_hid_lookup_quirk(const u16 idVendor, const u16 idProduct)
 {
-	u32 quirks = 0;
+	const struct i2c_hid_quirks *quirks = NULL;
 	int n;
 
 	for (n = 0; i2c_hid_quirks[n].idVendor; n++)
 		if (i2c_hid_quirks[n].idVendor == idVendor &&
 		    (i2c_hid_quirks[n].idProduct == (__u16)HID_ANY_ID ||
 		     i2c_hid_quirks[n].idProduct == idProduct))
-			quirks = i2c_hid_quirks[n].quirks;
+			quirks = &i2c_hid_quirks[n];
 
 	return quirks;
 }
@@ -425,7 +435,9 @@ static int i2c_hid_hwreset(struct i2c_client *client)
 	if (ret)
 		goto out_unlock;
 
-	usleep_range(750, 5000);
+	if (ihid->quirks & I2C_HID_QUIRK_SLEEP_BEFORE_RESET)
+		usleep_range(ihid->reset_usleep_low, ihid->reset_usleep_high);
+
 	i2c_hid_dbg(ihid, "resetting...\n");
 
 	ret = i2c_hid_command(client, &hid_reset_cmd, NULL, 0);
@@ -1006,6 +1018,7 @@ static int i2c_hid_probe(struct i2c_client *client,
 	struct i2c_hid *ihid;
 	struct hid_device *hid;
 	__u16 hidRegister;
+	const struct i2c_hid_quirks *quirks;
 	struct i2c_hid_platform_data *platform_data = client->dev.platform_data;
 
 	dbg_hid("HID probe called for i2c 0x%02x\n", client->addr);
@@ -1092,7 +1105,15 @@ static int i2c_hid_probe(struct i2c_client *client,
 		 client->name, hid->vendor, hid->product);
 	strlcpy(hid->phys, dev_name(&client->dev), sizeof(hid->phys));
 
-	ihid->quirks = i2c_hid_lookup_quirk(hid->vendor, hid->product);
+	quirks = i2c_hid_lookup_quirk(hid->vendor, hid->product);
+
+	if (quirks)
+		ihid->quirks = quirks->quirks;
+
+	if (ihid->quirks & I2C_HID_QUIRK_SLEEP_BEFORE_RESET) {
+		ihid->reset_usleep_low = quirks->reset_usleep_low;
+		ihid->reset_usleep_high = quirks->reset_usleep_high;
+	}
 
 	ret = hid_add_device(hid);
 	if (ret) {
