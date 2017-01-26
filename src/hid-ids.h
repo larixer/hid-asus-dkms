@@ -1,6 +1,10 @@
 #ifndef HID_IDS_H_FILE
 #define HID_IDS_H_FILE
 
+#ifndef MT_TOOL_PALM
+#define MT_TOOL_PALM MT_TOOL_FINGER
+#endif
+
 #define USB_VENDOR_ID_WEIDA             0x2575
 #define USB_DEVICE_ID_WEIDA_8752        0xC300
 #define USB_DEVICE_ID_WEIDA_8755        0xC301
