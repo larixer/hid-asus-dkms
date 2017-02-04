@@ -15,7 +15,9 @@ after installing this DKMS driver you will get this error message in kernel log:
 
     If you want to use this module you'll need to disable secure boot.
 
-2. Ensure Linux kernel headers installed for your kernel version.
+2. Ensure `dkms` package is installed.
+
+3. Ensure Linux kernel headers installed for your kernel version.
 
 ## Getting Started
 
