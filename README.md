@@ -63,7 +63,7 @@ This will install DKMS driver into the system and reloads it immediately.
 
 ## Development Scripts
 
-1. Script to clean compile the module from soruce without installing to dkms
+1. Script to clean compile the module from source without installing to dkms
   ```
   ./dev-run.sh
   ```
