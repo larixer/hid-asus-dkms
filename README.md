@@ -54,6 +54,8 @@ xinput list-props "Asus TouchPad"
 
 This will allow us to confirm you have the correct hardware and that your X Input Drivers are configured correctly.
 
+If the driver has installed correctly but is showing some edge case issues (like random movements) - you may need to configure your X Input Driver to ignore these edge cases. See [this](https://github.com/vlasenko/hid-asus-dkms/issues/42#issuecomment-283515964) for comments about how this can be acheived with the Synaptics driver.
+
 ## Updating to the latest driver version
 
 1. Pull latest source code from repository.
