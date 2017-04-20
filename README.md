@@ -1,5 +1,11 @@
 ## ASUS HID DKMS driver
 
+Note that this DKMS driver is obsolete if you are running Kernel version 4.10 or later. It has been included in the base version of this Kernel.
+
+This driver has also been backported to Yaketty (Ubuntu Kernel version 4.8) - so you will not need this DKMS driver if you are running Ubuntu 16.04.2 LTS with Kernel version 4.8 or later.
+
+If you are running Ubuntu 16.04.2 LTS with an earlier Kernel version and would like to upgrade - please see the information [here](https://wiki.ubuntu.com/Kernel/LTSEnablementStack#Ubuntu_16.04_LTS_-_Xenial_Xerus).
+
 ## Prerequisites
 
 1. Ensure secure boot is not enabled (or you have an acceptable alterantive in place). With end-to-end secure boot enabled, 
