@@ -45,6 +45,15 @@ https://github.com/vlasenko/hid-asus-dkms/issues
 
 This is the most convenient place for us to provide support on this project.
 
+Please provide in your issue the output for the following three commands (preferably ran immediately after a completed reboot):
+```
+dmesg | grep hid
+xinput
+xinput list-props "Asus TouchPad"
+```
+
+This will allow us to confirm you have the correct hardware and that your X Input Drivers are configured correctly.
+
 ## Updating to the latest driver version
 
 1. Pull latest source code from repository.
