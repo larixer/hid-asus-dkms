@@ -38,8 +38,13 @@
 #include <linux/mutex.h>
 #include <linux/acpi.h>
 #include <linux/of.h>
+#include <linux/version.h>
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,13,0)
 #include <linux/i2c/i2c-hid.h>
+#else
+#include <linux/platform_data/i2c-hid.h>
+#endif
 
 #include "hid-ids.h"
 
@@ -129,7 +134,9 @@ static const struct i2c_hid_cmd hid_no_cmd =		{ .length = 0 };
  * static const struct i2c_hid_cmd hid_set_protocol_cmd = { I2C_HID_CMD(0x07) };
  */
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,13,0)
 static DEFINE_MUTEX(i2c_hid_open_mut);
+#endif
 
 /* The main device structure */
 struct i2c_hid {
@@ -807,6 +814,7 @@ static int i2c_hid_open(struct hid_device *hid)
 	struct i2c_hid *ihid = i2c_get_clientdata(client);
 	int ret = 0;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,13,0)
 	mutex_lock(&i2c_hid_open_mut);
 	if (!hid->open++) {
 		ret = pm_runtime_get_sync(&client->dev);
@@ -819,6 +827,15 @@ static int i2c_hid_open(struct hid_device *hid)
 done:
 	mutex_unlock(&i2c_hid_open_mut);
 	return ret < 0 ? ret : 0;
+#else
+	ret = pm_runtime_get_sync(&client->dev);
+	if (ret < 0)
+		return ret;
+
+	set_bit(I2C_HID_STARTED, &ihid->flags);
+	return 0;
+#endif
+
 }
 
 static void i2c_hid_close(struct hid_device *hid)
@@ -826,6 +843,7 @@ static void i2c_hid_close(struct hid_device *hid)
 	struct i2c_client *client = hid->driver_data;
 	struct i2c_hid *ihid = i2c_get_clientdata(client);
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,13,0)
 	/* protecting hid->open to make sure we don't restart
 	 * data acquistion due to a resumption we no longer
 	 * care about
@@ -838,6 +856,12 @@ static void i2c_hid_close(struct hid_device *hid)
 		pm_runtime_put(&client->dev);
 	}
 	mutex_unlock(&i2c_hid_open_mut);
+#else
+	clear_bit(I2C_HID_STARTED, &ihid->flags);
+
+	/* Save some power */
+	pm_runtime_put(&client->dev);
+#endif
 }
 
 static int i2c_hid_power(struct hid_device *hid, int lvl)
@@ -858,7 +882,11 @@ static int i2c_hid_power(struct hid_device *hid, int lvl)
 	return 0;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,14,0)
 static struct hid_ll_driver i2c_hid_ll_driver = {
+#else
+struct hid_ll_driver i2c_hid_ll_driver = {
+#endif
 	.parse = i2c_hid_parse,
 	.start = i2c_hid_start,
 	.stop = i2c_hid_stop,
@@ -936,10 +964,16 @@ static int i2c_hid_fetch_hid_descriptor(struct i2c_hid *ihid)
 static int i2c_hid_acpi_pdata(struct i2c_client *client,
 		struct i2c_hid_platform_data *pdata)
 {
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,13,0)
 	static u8 i2c_hid_guid[] = {
 		0xF7, 0xF6, 0xDF, 0x3C, 0x67, 0x42, 0x55, 0x45,
 		0xAD, 0x05, 0xB3, 0x0A, 0x3D, 0x89, 0x38, 0xDE,
 	};
+#else
+	static guid_t i2c_hid_guid =
+		GUID_INIT(0x3CDFF6F7, 0x4267, 0x4555,
+			  0xAD, 0x05, 0xB3, 0x0A, 0x3D, 0x89, 0x38, 0xDE);
+#endif
 	union acpi_object *obj;
 	struct acpi_device *adev;
 	acpi_handle handle;
@@ -948,8 +982,13 @@ static int i2c_hid_acpi_pdata(struct i2c_client *client,
 	if (!handle || acpi_bus_get_device(handle, &adev))
 		return -ENODEV;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,13,0)
 	obj = acpi_evaluate_dsm_typed(handle, i2c_hid_guid, 1, 1, NULL,
 				      ACPI_TYPE_INTEGER);
+#else
+	obj = acpi_evaluate_dsm_typed(handle, &i2c_hid_guid, 1, 1, NULL,
+				      ACPI_TYPE_INTEGER);
+#endif
 	if (!obj) {
 		dev_err(&client->dev, "device _DSM execution failed\n");
 		return -ENODEV;
